@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arcade</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+<style>
+  :root {
+    --bg: #0b0d12;
+    --bg2: #11141c;
+    --card: #171b26;
+    --card-hover: #1e2331;
+    --border: #262c3d;
+    --text: #e6e9f0;
+    --muted: #8a93a8;
+    --accent: #6c8cff;
+    --accent2: #8f6cff;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(108,140,255,.18), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(143,108,255,.14), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 48px 24px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  header { margin-bottom: 36px; }
+  h1 {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    background: linear-gradient(135deg, #fff, #a9b6d6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sub { color: var(--muted); font-size: 15px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+    margin-top: 32px;
+  }
+
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+    aspect-ratio: 1 / 1;
+    padding: 22px;
+    background: linear-gradient(180deg, var(--card), var(--bg2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: inherit;
+    transition: transform .18s ease, border-color .18s ease,
+                background .18s ease, box-shadow .18s ease;
+    overflow: hidden;
+  }
+  .card::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(400px 200px at 50% 0%, rgba(108,140,255,.18), transparent 70%);
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: #33405c;
+    background: linear-gradient(180deg, var(--card-hover), var(--bg2));
+    box-shadow: 0 18px 40px -18px rgba(0,0,0,.6);
+  }
+  .card:hover::before { opacity: 1; }
+  .card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .icon {
+    width: 76px; height: 76px;
+    display: grid; place-items: center;
+    font-size: 40px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(108,140,255,.18), rgba(143,108,255,.14));
+    border: 1px solid rgba(108,140,255,.28);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    user-select: none;
+    overflow: hidden;
+  }
+  .icon img { width: 48px; height: 48px; object-fit: contain; }
+
+  .name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .desc { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+
+  .empty, .error {
+    margin-top: 48px;
+    padding: 32px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .error { color: #ff9c9c; border-color: rgba(255,156,156,.3); }
+  code {
+    background: rgba(255,255,255,.06);
+    padding: 2px 6px; border-radius: 6px;
+    font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  footer {
+    margin-top: 56px; text-align: center;
+    color: var(--muted); font-size: 12.5px;
+  }
+  .spinner {
+    margin: 64px auto;
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Arcade</h1>
+    <div class="sub">Pick a game. Multiplayer via Trystero.</div>
+  </header>
+
+  <div id="grid" class="grid" aria-live="polite">
+    <div class="spinner"></div>
+  </div>
+  <footer id="footer"></footer>
+</div>
+
+<script>
+(async function boot() {
+  const grid = document.getElementById('grid');
+  const footer = document.getElementById('footer');
+
+  let games;
+  try {
+    const res = await fetch('./games.json?_=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    games = await res.json();
+  } catch (err) {
+    grid.innerHTML = `
+      <div class="error">
+        Could not load <code>games.json</code> (${err.message}).<br>
+        Make sure the GitHub Action has run at least once after your first push.
+      </div>`;
+    return;
+  }
+
+  if (!Array.isArray(games) || games.length === 0) {
+    grid.innerHTML = `
+      <div class="empty">
+        No games yet. Create a folder with an <code>index.html</code> and push —
+        the manifest regenerates automatically.
+      </div>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const g of games) {
+    if (!g || !g.folder) continue;
+
+    const a = document.createElement('a');
+    a.className = 'card';
+    a.href = `./${encodeURIComponent(g.folder)}/`;
+    a.setAttribute('aria-label', g.name || g.folder);
+
+    const icon = document.createElement('div');
+    icon.className = 'icon';
+    const ic = g.icon || '🎮';
+    if (/^(https?:)?\/\//.test(ic) || ic.startsWith('./') || ic.startsWith('/')) {
+      const img = document.createElement('img');
+      img.src = ic;
+      img.alt = '';
+      img.loading = 'lazy';
+      icon.appendChild(img);
+    } else {
+      icon.textContent = ic;
+    }
+
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = g.name || titleCase(g.folder);
+
+    a.append(icon, name);
+
+    if (g.desc) {
+      const desc = document.createElement('div');
+      desc.className = 'desc';
+      desc.textContent = g.desc;
+      a.appendChild(desc);
+    }
+
+    frag.appendChild(a);
+  }
+  grid.innerHTML = '';
+  grid.appendChild(frag);
+  footer.textContent = `${games.length} game${games.length === 1 ? '' : 's'} available`;
+
+  function titleCase(s) {
+    return s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+})();
+</script>
+</body>
+</html>
