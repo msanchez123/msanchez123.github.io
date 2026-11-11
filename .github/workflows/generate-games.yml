@@ -1,0 +1,72 @@
+name: Generate Games Manifest
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: games-manifest
+  cancel-in-progress: true
+
+jobs:
+  build-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan folders and write games.json
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+
+          SKIP = {'.github', 'node_modules', '.git'}
+          games = []
+
+          for entry in sorted(os.listdir('.')):
+              if entry in SKIP or entry.startswith('.'):
+                  continue
+              if not os.path.isdir(entry):
+                  continue
+              idx = os.path.join(entry, 'index.html')
+              if not os.path.isfile(idx):
+                  continue
+
+              # Optional per-game metadata: folder/meta.json
+              meta = {}
+              meta_path = os.path.join(entry, 'meta.json')
+              if os.path.isfile(meta_path):
+                  try:
+                      meta = json.load(open(meta_path, encoding='utf-8'))
+                  except Exception as e:
+                      print(f"warn: bad meta.json in {entry}: {e}")
+
+              name = meta.get('name') or re.sub(r'[-_]+', ' ', entry).title()
+              game = {'name': name, 'folder': entry}
+              for key in ('icon', 'desc'):
+                  if meta.get(key):
+                      game[key] = meta[key]
+              games.append(game)
+
+          json.dump(games, open('games.json', 'w', encoding='utf-8'),
+                    indent=2, ensure_ascii=False)
+          print(f"Found {len(games)} game(s):")
+          for g in games:
+              print(f"  - {g['folder']}  ->  {g['name']}")
+          PY
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update games manifest [skip ci]"
+            git push
+          else
+            echo "games.json unchanged"
+          fi
