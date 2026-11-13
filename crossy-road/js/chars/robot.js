@@ -6,13 +6,13 @@
 'use strict';
 const AH = window.AH, W = AH.world;
 const CALM = { grass: 1, arena: 1, gate: 1 };
-const NEED = 20, LANES = 10;
+const NEED = 10, LANES = 10;
 
 function stop(p) { p.cs.auto = null; p.auto = false; p.cs.steps = 0; p.glow = false; }
 
 AH.chars.push({
   id: 'robot', name: 'Robot', col: 0x38e1ff, label: 'AUTO',
-  blurb: 'Every 20 hops, press AUTO. The robot crosses up to 10 lanes by itself, re-planning every move. Press again to take over. It can still be hit.',
+  blurb: 'Every 10 hops, press AUTO. The robot crosses up to 10 lanes by itself, re-planning every move. Press again to take over. It can still be hit.',
   geo(B) {
     const m = 0x9fb0bf, h = 0x7e8fa0, k = 0x55606c, b = new B();
     b.box(0.2, 0.2, 0.7, 0x3a4452, 0.36, 0.12, 0).box(0.2, 0.2, 0.7, 0x3a4452, -0.36, 0.12, 0)

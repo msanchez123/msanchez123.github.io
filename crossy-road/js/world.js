@@ -263,17 +263,13 @@ function makeRow(r) {
     const lamp = new T.Mesh(AH.BOX, AH.M(0x552222)); lamp.scale.set(0.3, 0.3, 0.3); lamp.position.set(-COLS - 1.6, 1.7, 0.4);
     row.group.add(lamp); row.lamp = lamp;
     row.train = { mesh: m, dir: dir, len: len, T: tm, warn: 1.3, speed: 30, off: rnd(0, tm), alive: !W.killed.has(r + ':-1'), row: r, idx: -1, kind: 'train' };
-  }
-  // Lateral boundaries transition into raised terrain instead of ending as a flat, hard edge.
-  // Layered ridges create a readable downslope / distant backdrop while staying outside the playable lanes.
-  const ridgeCols = [mixHex(th.ground[0], 0x243447, 0.28), mixHex(th.ground[1], 0x526579, 0.42), mixHex(th.arena.wall, 0x182331, 0.35)];
-  for (const side of [-1,1]) {
-    const edge = side * (COLS + 1.55);
-    const lower = new T.Mesh(AH.BOX, AH.M(ridgeCols[2])); lower.scale.set(3.2, 3.8, 1.05); lower.position.set(edge + side*0.95, -1.75, 0); row.group.add(lower);
-    const mid = new T.Mesh(AH.BOX, AH.M(ridgeCols[1])); mid.scale.set(2.5, 2.2, 1.02); mid.position.set(edge + side*0.42, -0.78, 0); row.group.add(mid);
-    const lip = new T.Mesh(AH.BOX, AH.M(ridgeCols[0])); lip.scale.set(1.55, 0.72, 1.0); lip.position.set(edge, -0.14, 0); row.group.add(lip);
-    // distant upper ridge gives the horizon a vertical silhouette from the mobile camera angle
-    const crest = new T.Mesh(AH.BOX, AH.M(ridgeCols[2])); crest.scale.set(2.6, 1.15, 0.9); crest.position.set(edge + side*2.1, 1.65, 0.12); row.group.add(crest);
+  } else if (type === 'gate') {
+    if (!W.arena(W.arenaStart(r)).beaten) {
+      for (let x = -COLS; x <= COLS; x++) {
+        const m = new T.Mesh(fenceGeo(th), VM); m.position.x = x; m.castShadow = true; row.group.add(m);
+        row.blockers.set(x, { kind: 'fence', node: m });
+      }
+    }
   }
   scene.add(row.group);
   return row;
