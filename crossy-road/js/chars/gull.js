@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 const AH = window.AH, T = AH.T, W = AH.world, INK = 0x10324a, COLS = AH.COLS;
-const NEED = 5, FLY_T = 3, POOP_EVERY = 0.6;
+const NEED = 5, FLY_T = 1, POOP_EVERY = 0.6;
 
 /* a standing spot near the bird that is neither inside a tree nor on top of another player, preferring one that will hold it up */
 function freeSpot(p) {
@@ -24,7 +24,7 @@ function freeSpot(p) {
 
 AH.chars.push({
   id: 'gull', name: 'Seagull', col: 0xdfe6ee, label: 'FLY',
-  blurb: 'Hop 5 times, then FLY: 3 seconds in the air, over traffic, water and trees, automatically dropping bombs that wreck hazards and hurt bosses.',
+  blurb: 'Hop 5 times, then FLY: 1 second in the air, over traffic, water and trees, automatically dropping bombs that wreck hazards and hurt bosses.',
   geo(B) {
     const w = 0xffffff, b = new B();
     b.box(0.5, 0.4, 0.8, w, 0, 0.6, 0).box(0.34, 0.2, 0.5, 0xe8eef5, 0, 0.45, 0.02)
@@ -88,7 +88,7 @@ AH.chars.push({
     if (p.lift < 0.18 && !p.jumping) {
       const x = freeSpot(p);
       if (x === null) { c.t = 0.8; return; }          // nowhere to stand yet: keep gliding
-      p.fly = false; p.lift = 0; p.x = x; AH.pg.position.x = x;
+      p.fly = false; c.steps = 0; c.t = 0; c.extra = 0; p.lift = 0; p.x = x; AH.pg.position.x = x;
       AH.beep(300, 0.12, 'sine', 0.04, -120);
       AH.player.settle();
     }

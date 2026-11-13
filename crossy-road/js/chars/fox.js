@@ -54,7 +54,7 @@ AH.chars.push({
   onLand(p) { if (p.burn) this.dropFire(p); },
   dropFire(p) {
     const fl = AH.fx.makeFlames(3, 0.28, 0.6);
-    fl.position.set(p.x, 0, p.z); AH.scene.add(fl);
+    fl.position.set(p.x, 0.02, p.z); fl.renderOrder = 3; AH.scene.add(fl);
     p.cs.trail.push({ mesh: fl, x: p.x, row: Math.round(-p.z), t: 0 });
   },
   update(p, dt) {
@@ -73,11 +73,17 @@ AH.chars.push({
       AH.fx.tickFlames(f.mesh, AH.now()); const fade = f.t > TRAIL - 0.8 ? Math.max(0.05, (TRAIL - f.t) / 0.8) : 1; f.mesh.scale.set(fade, fade, fade);
       const row = W.get(f.row);
       if (row) {
+        const now = AH.now();
+        // A flame patch is a small persistent hazard, not a one-frame snapshot:
+        // test its footprint against moving hazards every update.
         if (row.type === 'road' || row.type === 'roll') {
-          for (const o of row.objs) if (o.alive && o.hurts && Math.abs(W.objX(o, AH.now()) - f.x) < o.len / 2 + 0.7) AH.fx.kill(o, true);
+          for (const o of row.objs) if (o.alive && o.hurts && Math.abs(W.objX(o, now) - f.x) < o.len / 2 + 0.85) AH.fx.kill(o, true);
         } else if (row.type === 'rail' && row.train && row.train.alive) {
-          const s = W.trainState(row, AH.now());
-          if (s.x !== null && Math.abs(s.x - f.x) < row.train.len / 2 + 0.7) AH.fx.kill(row.train, true);
+          const s = W.trainState(row, now);
+          if (s.x !== null && Math.abs(s.x - f.x) < row.train.len / 2 + 0.85) AH.fx.kill(row.train, true);
+        } else if (row.blockers && row.blockers.has(Math.round(f.x))) {
+          // Fire also clears a tree/rock directly underneath the trail.
+          W.removeBlocker(f.row, Math.round(f.x), false);
         }
       }
       if (f.t > TRAIL) { AH.scene.remove(f.mesh); tr.splice(i, 1); }

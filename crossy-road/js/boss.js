@@ -14,6 +14,32 @@ function buildCreature(seed) {
   const hsl = (h, s, l) => new T.Color().setHSL(((h % 1) + 1) % 1, s, l).getHex();
   const hue = rng(), c1 = hsl(hue, 0.55, 0.5), c2 = hsl(hue + 0.06, 0.45, 0.68), c3 = hsl(hue + 0.5, 0.6, 0.5), dark = hsl(hue, 0.4, 0.25);
   const b = new AH.Builder();
+  const theme = AH.themeAt(B.A), special = rng();
+  // Rare playful mechanical bosses; most encounters remain fantastical.
+  if (special < 0.10) { // helicopter (very rare)
+    b.box(3.8, 1.0, 2.0, 0x536273, 0, 1.25, 0).box(1.8, 0.85, 1.5, 0x71869a, 0, 1.5, -0.35)
+      .box(1.0, 0.5, 0.08, 0x9fe8ff, 0, 1.55, -1.12).box(2.8, 0.18, 0.35, 0x394653, 0, 2.0, 0)
+      .box(0.18, 0.12, 5.2, 0x202a35, 0, 2.12, 0).box(0.22, 0.2, 2.6, 0x202a35, 0, 2.12, 0)
+      .box(2.2, 0.18, 0.18, 0x394653, 2.65, 1.2, 0).box(0.35, 0.28, 0.35, 0xe5484d, 3.65, 1.2, 0);
+    for (const side of [-1, 1]) b.box(0.45, 0.35, 0.55, 0x303b49, side * 1.1, 0.55, 0.3);
+    return b.build();
+  }
+  if (special < 0.15) { // giant car (rare)
+    b.box(4.6, 1.15, 2.2, 0xe5484d, 0, 1.05, 0).box(2.7, 1.0, 1.85, 0x9ed9ed, 0, 1.9, -0.1)
+      .box(4.9, 0.22, 2.35, 0x242a32, 0, 0.45, 0).box(0.35, 0.28, 0.12, 0xfff1a6, 0, 1.0, -1.14)
+      .box(0.22, 0.22, 0.12, 0xfff1a6, -1.8, 1.0, -1.14).box(0.22, 0.22, 0.12, 0xfff1a6, 1.8, 1.0, -1.14);
+    for (const x of [-1.55, 1.55]) for (const z of [-0.72, 0.72]) b.box(0.58, 0.58, 0.35, 0x171b22, x, 0.48, z);
+    return b.build();
+  }
+  if (special < 0.20) { // broad ancient guardian / turtle-like colossus
+    const shell = theme.id === 'desert' ? 0xb58a4b : theme.id === 'winter' ? 0x7ea6c5 : theme.id === 'volcano' ? 0x55434b : 0x477b55;
+    b.box(3.4, 1.55, 3.2, shell, 0, 1.35, 0).box(2.7, 0.5, 2.5, 0xc8a86a, 0, 2.15, 0)
+      .box(1.1, 1.0, 1.0, c1, 0, 1.5, -1.75).box(0.22, 0.22, 0.12, 0xffffff, -0.25, 1.7, -2.24)
+      .box(0.22, 0.22, 0.12, 0xffffff, 0.25, 1.7, -2.24);
+    for (const x of [-1.25, 1.25]) for (const z of [-1.0, 1.0]) b.box(0.65, 0.75, 0.7, dark, x, 0.4, z);
+    for (let i = -1; i <= 1; i++) b.box(0.22, 0.65, 0.22, c3, i * 0.75, 2.55, 0.1);
+    return b.build();
+  }
   const bw = R(2.0, 2.8), bh = R(1.5, 2.3), bd = R(2.2, 3.0), y0 = 0.55;
   b.box(bw, bh, bd, c1, 0, y0 + bh / 2, 0).box(bw * 0.8, bh * 0.45, bd * 0.92, c2, 0, y0 + bh * 0.28, 0.05);
   const hw = R(1.2, 1.9), hy = y0 + bh + hw * 0.25, hz = -bd / 2 - hw * 0.15;
@@ -83,7 +109,16 @@ function onEnter(st) {
   else if (st === 'slam') AH.cam.shake = Math.max(AH.cam.shake, 0.4);
   else if (st === 'tired') AH.cam.shake = Math.max(AH.cam.shake, 0.4);
 }
-function setSt(st) { B.st = st; B.tm = 0; onEnter(st); }
+function setSt(st) {
+  B.st = st; B.tm = 0;
+  // Lock each attack's aim when its warning begins. Telegraphs remain fixed,
+  // giving players a fair chance to react instead of following them.
+  const tg = nearest(B);
+  if (st === 'tslam' && tg) { B.ax = Math.round(tg.x); B.az = Math.round(tg.z); }
+  if (st === 'tcone' && tg) { B.dir = pickDir(tg); snapFace(); }
+  if (st === 'tcharge' && tg) { B.dir = pickDir(tg); snapFace(); }
+  onEnter(st);
+}
 
 B.start = function (A) {
   if (B.on) return;
@@ -95,13 +130,22 @@ B.start = function (A) {
   B.mat = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0x000000 });
   B.group = new T.Group(); const mesh = new T.Mesh(g, B.mat); mesh.castShadow = true; B.group.add(mesh); B.mesh = mesh;
   B.group.position.set(B.x, 0, B.z); AH.scene.add(B.group);
-  const th = AH.themeAt(A);
+  // Decorative arena-entry barricade: it seals the entrance behind the party.
+  const th = AH.themeAt(A), gate = new T.Group(), railMat = AH.M(th.arena.wallTop), postMat = AH.M(th.arena.pillar[0]);
+  for (let x = -COLS; x <= COLS; x += 1) {
+    const post = new T.Mesh(AH.BOX, postMat); post.scale.set(0.16, 1.35, 0.18); post.position.set(x, 0.68, -A); gate.add(post);
+  }
+  for (const y of [0.35, 1.05]) {
+    const rail = new T.Mesh(AH.BOX, railMat); rail.scale.set(COLS * 2 + 0.2, 0.16, 0.2); rail.position.set(0, y, -A); gate.add(rail);
+  }
+  gate.position.z = 0.08; AH.scene.add(gate); B.barrier = gate;
   poolMeshes.forEach(p => { p.a.material.color.setHex(th.arena.flame[0]); p.c.material.color.setHex(th.arena.pillar[1]); });
   AH.emit('boss-start', A);
 };
 B.clear = function () {
   if (B.group) AH.scene.remove(B.group);
-  B.group = null; B.on = false; B.st = 'none'; B.phase = 1; B.pools = []; B.mets = [];
+  if (B.barrier) AH.scene.remove(B.barrier);
+  B.barrier = null; B.group = null; B.on = false; B.st = 'none'; B.phase = 1; B.pools = []; B.mets = [];
   circle.visible = lane.visible = cone.visible = zzz.visible = false;
   poolMeshes.forEach(p => p.g.visible = false); metMeshes.forEach(m => m.g.visible = false);
 };
@@ -202,8 +246,8 @@ function think(dt) {
       if (B.tm > B.chaseT) next();
       break;
     case 'tcharge':
-      if (tg && B.tm < 0.65) { B.dir = pickDir(tg); face(dt, 9); } else snapFace();
-      if (B.tm > 1.0) { snapFace(); setSt('charge'); }
+      snapFace();
+      if (B.tm > 0.88) { setSt('charge'); }
       break;
     case 'charge': {
       const ox = B.x, oz = B.z, sp = p2 ? 15 : 13;
@@ -211,13 +255,12 @@ function think(dt) {
       if (B.tm > 1.5 || Math.hypot(B.x - ox, B.z - oz) < sp * dt * 0.3) setSt('tired');
       break; }
     case 'tslam':
-      if (tg && B.tm < 0.5) { B.ax = Math.round(tg.x); B.az = Math.round(tg.z); }
-      if (B.tm > 1.1) setSt('slam');
+      if (B.tm > 0.98) setSt('slam');
       break;
     case 'slam': if (B.tm > 0.3) { setSt('chase'); B.chaseT = chaseT(); } break;
     case 'tcone':
-      if (tg && B.tm < 0.6) { B.dir = pickDir(tg); face(dt, 9); }
-      if (B.tm > 1.1) { snapFace(); setSt('cone'); }
+      snapFace();
+      if (B.tm > 0.98) { setSt('cone'); }
       break;
     case 'cone': if (B.tm > 0.35) { setSt('chase'); B.chaseT = chaseT(); } break;
     case 'tsum': if (B.tm > 0.9) { spawnMeteors(p2 ? 5 : 3); setSt('sum'); } break;

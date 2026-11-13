@@ -60,6 +60,32 @@ const THEMES = AH.THEMES = [
     chase: { id: 'lava', label: 'LAVA FLOW', slab: 0xff5a14, rocks: [0xff7a1a, 0x2b2630, 0xff4a0a, 0x3a3340], dust: [0xff6a1a, 0xffb43a, 0x2b2630], glow: 0xff3d00, death: 'Scorched!' } }
 ];
 
+
+/* Additional art-direction zones reuse the lane rules but carry distinct palettes and arena dressing. */
+function themed(base, id, name, patch) {
+  const t = Object.assign({}, base, patch, { id: id, name: name });
+  ['arena', 'tree', 'conv', 'roll', 'chase'].forEach(k => { if (patch[k]) t[k] = Object.assign({}, base[k], patch[k]); });
+  return t;
+}
+THEMES.push(
+  themed(THEMES[0], 'mayan', 'Mayan Canopy', {
+    sky: [0x72c7b2, 0xd7e8a2], hemi: [0xfff4cf, 0x4d8066],
+    ground: [0x64834a, 0x789653], tuft: [0x3e7042, 0x4f8950], bloom: [0xffcf5c, 0xff8c69, 0xe9d8a6],
+    road: 0x76654b, marking: 0xe7d39b, water: 0x28a99a, pebble: 0x8c866d,
+    arena: { a: 0x9b8a62, b: 0x7c704f, accent: 0xd6a63c, wall: 0x746344, wallTop: 0xb7a477, pillar: [0xa99567, 0x66583c], moss: 0x477348, flame: [0xff7a2f, 0xffd45b], flag: 0x2e8066, prop: 'ruin' },
+    mix: { grass: 1.2, road: 0.7, water: 1.2, rail: 0.5, lily: 1.1, conv: 0.8, roll: 0.8 },
+    chase: { id: 'vines', label: 'VINE SURGE', slab: 0x55763e, rocks: [0x88744c, 0x6f5c3d, 0x9a865b], dust: [0x8b9b55, 0x6d8146, 0xb0a06a], death: 'Lost in the jungle!' }
+  }),
+  themed(THEMES[0], 'city', 'Neon City', {
+    sky: [0x172b4d, 0x596b91], hemi: [0xb9d7ff, 0x252d48], ground: [0x444b59, 0x505766],
+    tuft: [0x5a6678, 0x738096], bloom: [0x42e8d8, 0xff4f9a, 0xffd45b], pebble: 0x8792a4,
+    road: 0x252b36, marking: 0x62e9ed, water: 0x247caa, cone: 0xff4f9a,
+    arena: { a: 0x343d54, b: 0x252d42, accent: 0x43e8e0, wall: 0x222b40, wallTop: 0x596b91, pillar: [0x596b91, 0x343d54], moss: 0x43e8e0, flame: [0xff4f9a, 0x62e9ed], flag: 0xff4f9a, prop: 'obelisk' },
+    mix: { grass: 0.5, road: 1.8, water: 0.5, rail: 1.4, lily: 0.4, conv: 1.2, roll: 0.9 },
+    chase: { id: 'neon', label: 'NEON SURGE', slab: 0x34445f, rocks: [0x62e9ed, 0x596b91, 0xff4f9a], dust: [0x62e9ed, 0x596b91, 0x9b83d6], glow: 0xff4f9a, death: 'Caught in the city surge!' }
+  })
+);
+
 AH.zoneOf = r => Math.max(0, Math.floor((r - AH.ARENA_LEN) / AH.ARENA_EVERY));
 AH.themeAt = r => THEMES[AH.zoneOf(r) % THEMES.length];
 
