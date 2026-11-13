@@ -10,28 +10,31 @@ const R_BODY = 1.7, SLAM_R = 2.7, CONE_LEN = 8, CONE_HALF = 0.5, MET_R = 1.4, ME
 
 /* ---- the creature: a different monster for every arena ---- */
 function buildCreature(seed) {
+  B.kind = 'creature';
   const rng = AH.seeded(seed), R = (a, b) => a + rng() * (b - a), RI = (a, b) => Math.floor(R(a, b + 0.999));
   const hsl = (h, s, l) => new T.Color().setHSL(((h % 1) + 1) % 1, s, l).getHex();
   const hue = rng(), c1 = hsl(hue, 0.55, 0.5), c2 = hsl(hue + 0.06, 0.45, 0.68), c3 = hsl(hue + 0.5, 0.6, 0.5), dark = hsl(hue, 0.4, 0.25);
   const b = new AH.Builder();
   const theme = AH.themeAt(B.A), special = rng();
   // Rare playful mechanical bosses; most encounters remain fantastical.
-  if (special < 0.10) { // helicopter (very rare)
+  if (special < 0.035) { // helicopter (very rare)
+    B.kind = 'helicopter';
     b.box(3.8, 1.0, 2.0, 0x536273, 0, 1.25, 0).box(1.8, 0.85, 1.5, 0x71869a, 0, 1.5, -0.35)
-      .box(1.0, 0.5, 0.08, 0x9fe8ff, 0, 1.55, -1.12).box(2.8, 0.18, 0.35, 0x394653, 0, 2.0, 0)
-      .box(0.18, 0.12, 5.2, 0x202a35, 0, 2.12, 0).box(0.22, 0.2, 2.6, 0x202a35, 0, 2.12, 0)
+      .box(1.0, 0.5, 0.08, 0x9fe8ff, 0, 1.55, -1.12).box(0.18, 0.35, 0.18, 0x394653, 0, 2.0, 0)
       .box(2.2, 0.18, 0.18, 0x394653, 2.65, 1.2, 0).box(0.35, 0.28, 0.35, 0xe5484d, 3.65, 1.2, 0);
     for (const side of [-1, 1]) b.box(0.45, 0.35, 0.55, 0x303b49, side * 1.1, 0.55, 0.3);
     return b.build();
   }
-  if (special < 0.15) { // giant car (rare)
+  B.kind = 'creature';
+  if (special < 0.075) { // giant car (rare)
+    B.kind = 'car';
     b.box(4.6, 1.15, 2.2, 0xe5484d, 0, 1.05, 0).box(2.7, 1.0, 1.85, 0x9ed9ed, 0, 1.9, -0.1)
       .box(4.9, 0.22, 2.35, 0x242a32, 0, 0.45, 0).box(0.35, 0.28, 0.12, 0xfff1a6, 0, 1.0, -1.14)
       .box(0.22, 0.22, 0.12, 0xfff1a6, -1.8, 1.0, -1.14).box(0.22, 0.22, 0.12, 0xfff1a6, 1.8, 1.0, -1.14);
     for (const x of [-1.55, 1.55]) for (const z of [-0.72, 0.72]) b.box(0.58, 0.58, 0.35, 0x171b22, x, 0.48, z);
     return b.build();
   }
-  if (special < 0.20) { // broad ancient guardian / turtle-like colossus
+  if (special < 0.34) { // broad ancient guardian / turtle-like colossus
     const shell = theme.id === 'desert' ? 0xb58a4b : theme.id === 'winter' ? 0x7ea6c5 : theme.id === 'volcano' ? 0x55434b : 0x477b55;
     b.box(3.4, 1.55, 3.2, shell, 0, 1.35, 0).box(2.7, 0.5, 2.5, 0xc8a86a, 0, 2.15, 0)
       .box(1.1, 1.0, 1.0, c1, 0, 1.5, -1.75).box(0.22, 0.22, 0.12, 0xffffff, -0.25, 1.7, -2.24)
@@ -61,6 +64,19 @@ function buildCreature(seed) {
   for (let i = 0, n = RI(2, 5); i < n; i++) b.box(0.5 - i * 0.06, 0.5 - i * 0.06, 0.6, c1, 0, y0 + 0.5 + i * 0.1, bd / 2 + 0.3 + i * 0.55);
   if (rng() < 0.4) b.box(0.08, 0.9, 0.08, dark, 0.3, hy + hw * 0.6 + 0.3, hz).box(0.22, 0.22, 0.22, 0xffd23f, 0.3, hy + hw * 0.6 + 0.85, hz);
   return b.build();
+}
+
+/* A separate animated rig gives the rare helicopter moving rotor blades and visible side guns. */
+function makeHeliRig() {
+  const root = new T.Group(), metal = new T.MeshLambertMaterial({ color: 0x536273 }), dark = new T.MeshLambertMaterial({ color: 0x202a35 }), glass = new T.MeshLambertMaterial({ color: 0x9fe8ff, emissive: 0x16445a });
+  const box = (mat, x, y, z, sx, sy, sz, parent) => { const m = new T.Mesh(AH.BOX, mat); m.position.set(x,y,z); m.scale.set(sx,sy,sz); (parent || root).add(m); return m; };
+  const rotor = new T.Group(); rotor.position.set(0, 2.18, 0); box(dark,0,0,0,0.22,0.12,0.22,rotor);
+  box(dark,0,0,0,5.8,0.07,0.22,rotor); box(dark,0,0,0,0.22,0.07,5.8,rotor); root.add(rotor);
+  const tailRotor = new T.Group(); tailRotor.position.set(2.95,1.2,0); box(dark,0,0,0,0.12,0.12,0.12,tailRotor);
+  box(dark,0,0,0,0.08,1.15,0.12,tailRotor); box(dark,0,0,0,0.08,0.12,1.15,tailRotor); root.add(tailRotor);
+  const guns = [];
+  for (const side of [-1,1]) { box(metal,side*1.55,0.72,0.25,0.65,0.32,0.58); guns.push(box(dark,side*1.85,0.7,-0.05,0.72,0.16,0.16)); box(glass,side*0.32,1.52,-1.1,0.52,0.28,0.05); }
+  return { root, rotor, tailRotor, guns };
 }
 
 /* ---- telegraphs ---- */
@@ -125,29 +141,36 @@ B.start = function (A) {
   B.on = true; B.A = A; B.st = 'sleep'; B.tm = 0; B.hp = B.max; B.phase = 1; B.pools = []; B.mets = []; B.x = B.px = 0; B.z = B.pz = -(A + 12);
   B.rot = B.prot = 0; B.dir = [0, -1]; B.axT = 0; B.chaseT = 3; B.flash = 0;
   const seed = (AH.roomSeed || 'solo') + ':boss:' + A, kr = AH.seeded(seed + ':kit');
-  B.kit = { summon: kr() < 0.7 };
+  B.kit = { summon: kr() < 0.7 }; B.bullets = []; B.fireT = 0; B.barrierLift = 0;
   const g = buildCreature(seed);
   B.mat = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0x000000 });
   B.group = new T.Group(); const mesh = new T.Mesh(g, B.mat); mesh.castShadow = true; B.group.add(mesh); B.mesh = mesh;
   B.group.position.set(B.x, 0, B.z); AH.scene.add(B.group);
+  B.heli = B.kind === 'helicopter' ? makeHeliRig() : null; if (B.heli) B.group.add(B.heli.root);
   // Decorative arena-entry barricade: it seals the entrance behind the party.
-  const th = AH.themeAt(A), gate = new T.Group(), railMat = AH.M(th.arena.wallTop), postMat = AH.M(th.arena.pillar[0]);
-  for (let x = -COLS; x <= COLS; x += 1) {
-    const post = new T.Mesh(AH.BOX, postMat); post.scale.set(0.16, 1.35, 0.18); post.position.set(x, 0.68, -A); gate.add(post);
+  const th = AH.themeAt(A), gate = new T.Group(), stone = AH.M(th.arena.wall), cap = AH.M(th.arena.wallTop), glow = AH.M(th.arena.accent);
+  // Theme-matched sealed entrance: chunky ruin slabs, ice monoliths, basalt columns or neon pylons.
+  for (const x of [-6,-4,-2,0,2,4,6]) {
+    const pillar = new T.Mesh(AH.BOX, stone); pillar.scale.set(0.72, 2.35, 0.48); pillar.position.set(x, 1.15, 0); gate.add(pillar);
+    const crown = new T.Mesh(AH.BOX, cap); crown.scale.set(0.9, 0.28, 0.62); crown.position.set(x, 2.42, 0); gate.add(crown);
+    const rune = new T.Mesh(AH.BOX, glow); rune.scale.set(0.12, 0.72, 0.06); rune.position.set(x, 1.2, -0.27); gate.add(rune);
   }
-  for (const y of [0.35, 1.05]) {
-    const rail = new T.Mesh(AH.BOX, railMat); rail.scale.set(COLS * 2 + 0.2, 0.16, 0.2); rail.position.set(0, y, -A); gate.add(rail);
-  }
-  gate.position.z = 0.08; AH.scene.add(gate); B.barrier = gate;
+  const lintel = new T.Mesh(AH.BOX, cap); lintel.scale.set(14.5, 0.48, 0.58); lintel.position.set(0, 2.72, 0); gate.add(lintel);
+  gate.position.set(0, 0, -A); AH.scene.add(gate); B.barrier = gate;
   poolMeshes.forEach(p => { p.a.material.color.setHex(th.arena.flame[0]); p.c.material.color.setHex(th.arena.pillar[1]); });
   AH.emit('boss-start', A);
 };
 B.clear = function () {
   if (B.group) AH.scene.remove(B.group);
   if (B.barrier) AH.scene.remove(B.barrier);
-  B.barrier = null; B.group = null; B.on = false; B.st = 'none'; B.phase = 1; B.pools = []; B.mets = [];
+  B.barrier = null; B.heli = null; B.bullets = []; B.group = null; B.on = false; B.st = 'none'; B.phase = 1; B.pools = []; B.mets = [];
+  (B.bulletMeshes || []).forEach(m => { m.visible = false; });
   circle.visible = lane.visible = cone.visible = zzz.visible = false;
   poolMeshes.forEach(p => p.g.visible = false); metMeshes.forEach(m => m.g.visible = false);
+};
+
+B.gateBlocks = function (fromRow, toRow) {
+  return !!(B.on && B.barrier && B.st === 'sleep' && fromRow >= B.A && toRow < B.A);
 };
 
 B.hurt = function (n) {
@@ -160,6 +183,7 @@ B.hurt = function (n) {
 
 B.lethalAt = function (x, z) {
   if (!B.on || B.st === 'dying' || B.st === 'sleep') return false;
+  if (B.bullets) for (const q of B.bullets) if (Math.hypot(x-q.x,z-q.z) < 0.48) return true;
   if (B.phase >= 2) for (const p of B.pools) if (Math.hypot(x - p[0], z - p[1]) < p[2] - 0.15) return true;
   for (const m of B.mets) if (m.t >= MET_WARN && m.t < MET_WARN + 0.35 && Math.hypot(x - m.x, z - m.z) < MET_R) return true;
   if (B.st === 'tired') return false;
@@ -222,6 +246,7 @@ function think(dt) {
   B.mets.forEach(m => m.t += dt); B.mets = B.mets.filter(m => m.t < MET_WARN + 0.5);
   const tg = nearest(B), p2 = B.phase >= 2, spd = p2 ? 3.3 : 2.6, chaseT = () => p2 ? 1.4 + Math.random() * 1.2 : 2 + Math.random() * 1.5;
   const next = function () {
+    if (B.kind === 'helicopter' && Math.random() < 0.48) { setSt('hland'); return; }
     const r = Math.random();
     if (B.kit.summon && r < (p2 ? 0.35 : 0.22)) setSt('tsum');
     else setSt(r < 0.5 ? 'tcharge' : r < 0.75 ? 'tslam' : 'tcone');
@@ -266,6 +291,18 @@ function think(dt) {
     case 'tsum': if (B.tm > 0.9) { spawnMeteors(p2 ? 5 : 3); setSt('sum'); } break;
     case 'sum': if (B.tm > 0.6) { setSt('chase'); B.chaseT = chaseT(); } break;
     case 'tired': if (B.tm > 2.8) { setSt('chase'); B.chaseT = 2.2; } break;
+    case 'hland': if (B.tm > 0.9) { setSt('hgun'); B.fireT = 0; B.bullets = []; } break;
+    case 'hgun': {
+      B.fireT -= dt;
+      if (B.fireT <= 0) {
+        B.fireT = 0.22;
+        const target = nearest(B);
+        if (target) for (const side of [-1,1]) { const sx = B.x + side * 1.8, sz = B.z; const dx = target.x - sx, dz = target.z - sz, len = Math.hypot(dx,dz)||1; B.bullets.push({x:sx,z:sz,vx:dx/len*8.5,vz:dz/len*8.5,t:0}); }
+      }
+      B.bullets.forEach(q => { q.x += q.vx*dt; q.z += q.vz*dt; q.t += dt; }); B.bullets = B.bullets.filter(q => q.t < 1.8 && Math.abs(q.x) < COLS+1);
+      if (B.tm > 3.8) { B.bullets = []; setSt('tired'); }
+      break;
+    }
     case 'dying':
       if (B.tm > 2.2 && !B.done) { B.done = true; AH.net ? AH.net.event('beat', { a: B.A }, true) : AH.onBeat(B.A); }
       break;
@@ -275,13 +312,13 @@ function think(dt) {
 /* ---- network state ---- */
 const r2 = v => +v.toFixed(2);
 B.pack = function () {
-  return [B.A, B.st, r2(B.x), r2(B.z), r2(B.rot), B.hp, r2(B.ax), r2(B.az), r2(B.tm), B.phase, B.pools, B.mets.map(m => [r2(m.x), r2(m.z), r2(m.t)])];
+  return [B.A, B.st, r2(B.x), r2(B.z), r2(B.rot), B.hp, r2(B.ax), r2(B.az), r2(B.tm), B.phase, B.pools, B.mets.map(m => [r2(m.x), r2(m.z), r2(m.t)]), (B.bullets||[]).map(q=>[r2(q.x),r2(q.z),r2(q.vx),r2(q.vz),r2(q.t)])];
 };
 B.apply = function (s) {
   if (!B.on) { if (s[1] === 'none') return; B.start(s[0]); }
   if (B.st !== s[1]) { B.tm = s[8]; B.st = s[1]; onEnter(s[1]); }
   B.px = s[2]; B.pz = s[3]; B.prot = s[4]; B.hp = s[5]; B.ax = s[6]; B.az = s[7]; B.phase = s[9] || 1;
-  B.pools = s[10] || []; B.mets = (s[11] || []).map(a => ({ x: a[0], z: a[1], t: a[2] }));
+  B.pools = s[10] || []; B.mets = (s[11] || []).map(a => ({ x: a[0], z: a[1], t: a[2] })); B.bullets = (s[12] || []).map(a=>({x:a[0],z:a[1],vx:a[2],vz:a[3],t:a[4]}));
 };
 
 /* ---- per frame (everyone) ---- */
@@ -303,14 +340,18 @@ B.update = function (dt) {
   B.flash = Math.max(0, B.flash - dt);
   if (!B.group) return;
   const s = B.st, now = AH.now(), sleeping = s === 'sleep';
+  if (B.barrier) { B.barrierLift = Math.min(1, B.barrierLift + (sleeping ? 0 : dt * 1.8)); B.barrier.position.y = B.barrierLift * 3.4; }
   const bob = sleeping ? Math.sin(now * 1.6) * 0.04 : Math.sin(now * 6) * 0.05;
-  B.group.position.set(B.x, bob, B.z);
-  B.group.rotation.y = B.rot;
+  const heliAttack = B.kind === 'helicopter' && (s === 'hland' || s === 'hgun' || s === 'tired');
+  B.group.position.set(B.x, B.kind === 'helicopter' ? (heliAttack ? 0.72 : 4.2 + Math.sin(now*2.4)*0.22) : bob, B.z);
+  B.group.rotation.y = B.rot + (s === 'hgun' ? B.tm * 7.5 : 0);
+  if (B.heli) { B.heli.rotor.rotation.y += dt * (heliAttack ? 34 : 24); B.heli.tailRotor.rotation.x += dt * 30; B.heli.root.rotation.z = s === 'hgun' ? Math.sin(B.tm*12)*0.42 : s === 'hland' ? 0 : Math.sin(now*2)*0.025; }
+
   let sc = s === 'dying' ? Math.max(0.05, 1 - B.tm / 2.2) : B.phase >= 2 ? 1.1 : 1;
   const breathe = sleeping ? 1 + Math.sin(now * 1.6) * 0.03 : s === 'roar' || s === 'rage' ? 1 + Math.sin(B.tm * 30) * 0.03 : 1;
   B.group.scale.set(sc, sc * (s === 'tired' ? 0.92 : sleeping ? 0.9 : breathe), sc);
   if (s === 'dying') { B.group.rotation.z = Math.sin(B.tm * 30) * 0.08; if (Math.random() < 0.4) AH.burst(2, B.x, 1.5, B.z, [0xffd23f, 0xffffff, 0xe5484d], 3, 4); }
-  const hot = s === 'tcharge' || s === 'tslam' || s === 'tcone' || s === 'tsum';
+  const hot = s === 'hland' || s === 'hgun' || s === 'tcharge' || s === 'tslam' || s === 'tcone' || s === 'tsum';
   const enraged = B.phase >= 2 && !sleeping;
   B.mat.emissive.setHex(B.flash > 0 ? 0xffffff : hot ? (Math.floor(now * 10) % 2 ? 0x992222 : 0x330000) : s === 'tired' ? 0x2244aa : s === 'rage' || s === 'roar' ? 0x772200 : enraged ? 0x330a00 : 0x000000);
   // sleepy Zs
@@ -340,6 +381,9 @@ B.update = function (dt) {
     m.d.material.opacity = boom ? 0.75 : 0.2 + 0.25 * k;
     m.r.visible = !boom; m.r.position.y = 0.5 + (1 - k) * (1 - k) * 9;
   });
+  if (!B.bulletMeshes) B.bulletMeshes = [];
+  while (B.bulletMeshes.length < (B.bullets||[]).length) { const m = new T.Mesh(new T.SphereGeometry(0.16,8,6), new T.MeshBasicMaterial({color:0xffd36b})); AH.scene.add(m); B.bulletMeshes.push(m); }
+  B.bulletMeshes.forEach((m,i)=>{ const q=(B.bullets||[])[i]; m.visible=!!q; if(q) m.position.set(q.x,0.48,q.z); });
   // host streams its state to the room
   if (host && AH.net) { B.sent -= dt; if (B.sent <= 0) { B.sent = 0.1; AH.net.sendBoss(B.pack()); } }
 };

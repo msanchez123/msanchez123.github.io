@@ -7,20 +7,6 @@
 const AH = window.AH, T = AH.T, W = AH.world, INK = 0x10324a, COLS = AH.COLS;
 const NEED = 5, FLY_T = 1, POOP_EVERY = 0.6;
 
-/* a standing spot near the bird that is neither inside a tree nor on top of another player, preferring one that will hold it up */
-function freeSpot(p) {
-  const row = W.get(p.row), now = AH.now();
-  if (!row) return p.x;
-  let best = null;
-  for (const o of [0, 1, -1, 2, -2, 3, -3]) {
-    const x = Math.round(p.x) + o;
-    if (Math.abs(x) > COLS || row.blockers.has(x) || AH.player.occupied(x, p.row)) continue;
-    const ok = W.stand(row, x, now).ok;
-    if (!best || (ok && !best.ok)) best = { x: x, ok: ok };
-    if (ok) break;
-  }
-  return best ? best.x : null;
-}
 
 AH.chars.push({
   id: 'gull', name: 'Seagull', col: 0xdfe6ee, label: 'FLY',
@@ -59,7 +45,7 @@ AH.chars.push({
       }
     };
   },
-  init(p) { p.cs = { steps: 0, t: 0, cd: 0, extra: 0 }; p.inv = false; p.burn = false; p.glow = false; p.fly = false; p.lift = 0; },
+  init(p) { p.cs = { steps: 0, t: 0, cd: 0, dropping: false, dropV: 0 }; p.inv = false; p.burn = false; p.glow = false; p.fly = false; p.lift = 0; },
   ui(p) {
     const c = p.cs;
     if (p.fly) return { label: 'FLY', pct: Math.max(0, c.t) / FLY_T * 100, ready: false, text: c.t > 0 ? Math.ceil(c.t) + 's' : 'LAND' };
@@ -70,7 +56,7 @@ AH.chars.push({
     const c = p.cs;
     if (p.fly) return;                        // bombs drop by themselves while airborne
     if (c.steps < NEED) { AH.beep(130, 0.06, 'square', 0.03); return; }
-    c.steps = 0; c.t = FLY_T; c.cd = 0.3; c.extra = 1.5; p.fly = true; p.log = null;
+    c.steps = 0; c.t = FLY_T; c.cd = 0.3; c.dropping = false; c.dropV = 0; p.fly = true; p.log = null;
     AH.burst(10, p.x, 0.8, p.z, [0xffffff, 0xe8eef5], 2.4, 3.2);
     AH.beep(520, 0.3, 'sine', 0.06, 500);
   },
@@ -81,14 +67,11 @@ AH.chars.push({
     c.cd -= dt;
     if (c.t > 0 && c.cd <= 0) { AH.fx.poop(p.x, p.z, true, p.y + p.lift); c.cd = POOP_EVERY; }
     if (c.t > 0) { c.t -= dt; p.lift += (AH.FLYY - p.lift) * Math.min(1, dt * 5); return; }
-    // time is up. Over a road, rails or water it keeps gliding for up to 2.5 more seconds so you can hop to solid ground; then it lands
-    const rt = W.get(p.row);
-    if (rt && rt.type !== 'grass' && rt.type !== 'arena' && c.extra > 0) { c.extra -= dt; p.lift += (AH.FLYY - p.lift) * Math.min(1, dt * 5); return; }
-    p.lift += (0 - p.lift) * Math.min(1, dt * 6);
-    if (p.lift < 0.18 && !p.jumping) {
-      const x = freeSpot(p);
-      if (x === null) { c.t = 0.8; return; }          // nowhere to stand yet: keep gliding
-      p.fly = false; c.steps = 0; c.t = 0; c.extra = 0; p.lift = 0; p.x = x; AH.pg.position.x = x;
+    // Flight ends with a direct drop at the current coordinates: no glide extension,
+    // safe-spot search, horizontal correction, or landing grace period.
+    c.dropping = true; c.dropV += 18 * dt; p.lift = Math.max(0, p.lift - c.dropV * dt);
+    if (p.lift <= 0.001) {
+      p.lift = 0; p.fly = false; c.dropping = false; c.steps = 0; c.t = 0;
       AH.beep(300, 0.12, 'sine', 0.04, -120);
       AH.player.settle();
     }

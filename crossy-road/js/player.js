@@ -57,7 +57,7 @@ PL.opts = function () {
   const ch = P.ch;
   return {
     fly: P.fly, occ: occupied,
-    block: (x, z) => !!(AH.boss && AH.boss.hopCheck(x, z, P)),
+    block: (x, z) => !!(AH.boss && (AH.boss.hopCheck(x, z, P) || AH.boss.gateBlocks(P.row, Math.round(-z)))),
     veto: ch.veto ? (row, x, t) => ch.veto(P, row, x, t) : null
   };
 };
