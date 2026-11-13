@@ -4,12 +4,38 @@
 const T = THREE;
 const AH = window.AH = { T: T };
 AH.COLS = 7; AH.MINROW = -8; AH.WRAP = 22; AH.PER = 44;
-AH.JD = 0.17; AH.LOGTOP = 0.17; AH.PADY = 0.08; AH.GULLY = 3.2;
+AH.JD = 0.17; AH.LOGTOP = 0.17; AH.PADY = 0.08; AH.FLYY = 1.9;
+AH.DIRS = { F: [0, -1], B: [0, 1], L: [-1, 0], R: [1, 0] };
 AH.ARENA_EVERY = 50; AH.ARENA_LEN = 15;
 AH.chars = [];
 const clamp = AH.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 AH.lerp = (a, b, t) => a + (b - a) * t;
 AH.$ = id => document.getElementById(id);
+
+/* ---- fixed 100% UI baseline ----
+ * The page forces a 1:1 viewport (no pinch zoom, no text inflation) and every CSS size is  N * var(--u).
+ * --u is recomputed from the real viewport, so browser zoom and system font scaling cannot push text off screen:
+ * zooming in shrinks innerWidth, which shrinks --u by the same factor, and the UI lands at the same physical size. */
+(function () {
+  let mv = document.querySelector('meta[name=viewport]');
+  if (!mv) { mv = document.createElement('meta'); mv.name = 'viewport'; document.head.appendChild(mv); }
+  mv.setAttribute('content', 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  const root = document.documentElement;
+  AH.uPx = 1;
+  AH.fitUI = function () {
+    const vv = window.visualViewport;
+    const w = (vv && vv.width) || window.innerWidth, h = (vv && vv.height) || window.innerHeight;
+    // 390x720 css px is the design size; clamp keeps tiny and huge screens usable
+    const u = Math.max(0.72, Math.min(1.55, Math.min(w / 390, h / 720)));
+    AH.uPx = u; root.style.setProperty('--u', (u).toFixed(4) + 'px');
+  };
+  AH.fitUI();
+  window.addEventListener('resize', AH.fitUI);
+  window.addEventListener('orientationchange', function () { setTimeout(AH.fitUI, 120); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', AH.fitUI);
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false }); });
+  document.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+})();
 AH.calm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /* ---- rng: world stream is seeded per room/round so every phone builds the same course ---- */
@@ -66,7 +92,7 @@ Builder.prototype.build = function () {
 AH.Builder = Builder;
 AH.VM = new T.MeshLambertMaterial({ vertexColors: true });
 AH.VMG = new T.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.26, depthWrite: false });
-AH.FIREMAT = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0xff5a00, emissiveIntensity: 0.85 });
+AH.FIREMAT = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0xff5a00, emissiveIntensity: 0.4 });
 const flat = {};
 AH.M = c => flat[c] || (flat[c] = new T.MeshLambertMaterial({ color: c }));
 AH.BOX = new T.BoxGeometry(1, 1, 1);
@@ -82,8 +108,9 @@ AH.$('gl').appendChild(renderer.domElement);
 const scene = AH.scene = new T.Scene();
 const camera = AH.camera = new T.OrthographicCamera(-5, 5, 5, -5, 0.1, 160);
 const CAM_OFF = new T.Vector3(4.5, 11, 9);
-scene.add(new T.HemisphereLight(0xffffff, 0x9aa8b8, 0.62));
-const sun = new T.DirectionalLight(0xffffff, 0.5);
+const hemi = AH.hemi = new T.HemisphereLight(0xffffff, 0x9aa8b8, 0.62);
+scene.add(hemi);
+const sun = AH.sun = new T.DirectionalLight(0xffffff, 0.5);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
 sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.02;

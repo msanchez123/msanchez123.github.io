@@ -40,6 +40,22 @@ FX.stomp = function (r, x, mine) {
   if (mine) send('stomp', { r: r, x: x });
 };
 
+/* Small explosion (fire fox igniting): wrecks hazards and trees within 2.5 blocks and hurts a nearby boss. */
+FX.blast = function (r, x, mine) {
+  const R = 2.5, cx = Math.round(x);
+  for (let dr = -3; dr <= 3; dr++) {
+    const rr = r + dr;
+    for (let dc = -3; dc <= 3; dc++) if (dc * dc + dr * dr <= R * R + 0.5) W.removeBlocker(rr, cx + dc);
+    if (Math.abs(dr) <= R) killRowNear(rr, x, Math.sqrt(Math.max(0, R * R - dr * dr)));
+  }
+  const m = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: 0xff6a1a, transparent: true, opacity: 0.8, depthWrite: false }));
+  m.position.set(x, 0.12, -r); AH.scene.add(m); rings.push({ m: m, t: 0 });
+  for (let i = 0; i < 22; i++) { const a = i / 22 * 6.283; AH.burst(1, x + Math.cos(a) * 1.4, 0.3, -r + Math.sin(a) * 1.4, [0xff3d00, 0xff8a1a, 0xffd23f], 3, 4); }
+  AH.cam.shake = Math.max(AH.cam.shake, 0.35); AH.beep(110, 0.35, 'sawtooth', 0.08, 300);
+  if (AH.boss && AH.boss.on && mine && Math.hypot(AH.boss.x - x, AH.boss.z + r) < R + 1.7) AH.boss.hurt(1);
+  if (mine) send('blast', { r: r, x: x });
+};
+
 /* A bundle of flickering flame tongues (red base, orange middle, yellow tip) used by the fire fox and its trail. */
 const FM = [0xff3d00, 0xff8a1a, 0xffd84a].map(c => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.93 }));
 FX.makeFlames = function (n, spread, s) {
@@ -61,12 +77,13 @@ FX.tickFlames = function (group, t) {
 };
 
 /* Gull bomb: falls from the sky, then wrecks the lane it lands in. */
-FX.poop = function (x, z, mine) {
-  const m = new T.Mesh(AH.BOX, AH.M(0xf4f1e8)); m.scale.set(0.3, 0.38, 0.3); m.position.set(x, AH.GULLY, z);
+FX.poop = function (x, z, mine, y) {
+  y = y === undefined ? AH.FLYY : y;
+  const m = new T.Mesh(AH.BOX, AH.M(0xf4f1e8)); m.scale.set(0.3, 0.38, 0.3); m.position.set(x, y, z);
   AH.scene.add(m);
-  falling.push({ m: m, x: x, z: z, y: AH.GULLY, vy: 0, mine: mine });
+  falling.push({ m: m, x: x, z: z, y: y, vy: 0, mine: mine });
   AH.beep(900, 0.25, 'sine', 0.04, -600);
-  if (mine) send('poop', { x: x, z: z });
+  if (mine) send('poop', { x: x, z: z, y: y });
 };
 FX.update = function (dt) {
   for (let i = rings.length - 1; i >= 0; i--) {
@@ -93,6 +110,7 @@ FX.clear = function () { rings.forEach(g => AH.scene.remove(g.m)); rings.length 
 FX.recv = function (t, d) {
   if (t === 'kill') W.killObj(d.r, d.i);
   else if (t === 'stomp') FX.stomp(d.r, d.x, false);
-  else if (t === 'poop') FX.poop(d.x, d.z, false);
+  else if (t === 'blast') FX.blast(d.r, d.x, false);
+  else if (t === 'poop') FX.poop(d.x, d.z, false, d.y);
 };
 })();

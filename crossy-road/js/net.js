@@ -1,19 +1,23 @@
 /* net.js: peer to peer rooms with Trystero. Handles invite links, ghosts of other players, a shared clock, and the event channel.
- * The lowest peer id is the "host" and runs the boss brain; everything else is symmetric. */
+ * The longest-connected peer is the "host" (ties broken by id): it runs the boss brain and sends a world snapshot to anyone who joins.
+ * Everything else is symmetric. */
 (function () {
 'use strict';
 const AH = window.AH, T = AH.T, $ = AH.$, G = AH.G, P = AH.P;
 const TURN = []; // add {urls:'turn:host:3478', username:'u', credential:'p'} when a carrier blocks direct links
-const NET = AH.net = { id: null, room: null, connecting: false, note: '', selfId: 'self-' + Math.random().toString(36).slice(2, 8), send: {}, lastSend: 0, sync: new Map(), syncT: 0 };
+const NET = AH.net = { id: null, room: null, connecting: false, note: '', selfId: 'self-' + Math.random().toString(36).slice(2, 8), send: {}, lastSend: 0, sync: new Map(), syncT: 0, joinT: Date.now() };
 const SLOTS = [0x3b82f6, 0x9b5de5, 0x2dd4bf, 0xe5484d, 0xf5c518, 0xff7aa8];
 let slotIdx = 0;
 
 NET.roomFromHash = function () { const m = /^#room-([a-z0-9]{4,12})$/.exec(location.hash); return m ? m[1] : null; };
 NET.isHost = function () {
   if (!NET.room) return true;
-  let low = NET.selfId;
-  AH.ghosts.forEach((g, id) => { if (id < low) low = id; });
-  return low === NET.selfId;
+  let lowT = NET.joinT, lowId = NET.selfId;
+  AH.ghosts.forEach((g, id) => {
+    const jt = g.joinT > 0 ? g.joinT : Infinity;
+    if (jt < lowT || (jt === lowT && id < lowId)) { lowT = jt; lowId = id; }
+  });
+  return lowId === NET.selfId;
 };
 NET.event = function (t, d, toSelf) {
   if (NET.send.ev) { try { NET.send.ev([t, d]); } catch (e) {} }
@@ -21,20 +25,27 @@ NET.event = function (t, d, toSelf) {
 };
 NET.sendBoss = function (arr) { if (NET.send.bs) { try { NET.send.bs(arr); } catch (e) {} } };
 function handleEvent(t, d) {
-  if (t === 'kill' || t === 'stomp' || t === 'poop') AH.fx.recv(t, d);
+  if (t === 'kill' || t === 'stomp' || t === 'poop' || t === 'blast') AH.fx.recv(t, d);
   else if (t === 'bdmg') { if (NET.isHost() && AH.boss) AH.boss.hurt(d.n); }
   else if (t === 'beat') AH.onBeat(d.a);
+  else if (t === 'snap') AH.onSnap(d);
 }
 const idOf = a => typeof a === 'string' ? a : (a && a.peerId);
 
 /* ---- ghosts ---- */
+function setRig(g) {
+  if (g.rig) { g.inner.remove(g.rig.group); g.rig = null; }
+  const c = AH.chars[g.ch];
+  if (c.rig) { g.rig = c.rig(AH.Builder); g.inner.add(g.rig.group); }
+}
 function addGhost(id, ch) {
   const col = SLOTS[slotIdx++ % SLOTS.length];
   const mesh = new T.Mesh(AH.charGeo(ch), AH.VM); mesh.castShadow = true;
   const inner = new T.Group(); inner.add(mesh);
   const tag = new T.Mesh(AH.BOX, AH.M(col)); tag.scale.set(0.26, 0.26, 0.26); tag.position.y = 2.6; tag.rotation.set(0.62, 0, 0.78);
   const g = new T.Group(); g.add(inner, tag); g.visible = false; AH.scene.add(g);
-  const o = { id: id, g: g, inner: inner, mesh: mesh, tag: tag, col: col, ch: ch, tx: 0, ty: 0, tz: 0, tr: 0, sy: 1, score: 0, dead: false, fly: !!AH.chars[ch].flies, seen: performance.now(), first: true };
+  const o = { id: id, g: g, inner: inner, mesh: mesh, tag: tag, col: col, ch: ch, tx: 0, ty: 0, tz: 0, tr: 0, sy: 1, score: 0, dead: false, fly: false, joinT: 0, rig: null, seen: performance.now(), first: true };
+  setRig(o);
   AH.ghosts.set(id, o);
   return o;
 }
@@ -46,18 +57,22 @@ function onState(d, a) {
   if (!id || !Array.isArray(d) || d.length < 11) return;
   const rd = d[8] | 0, rs = +d[9] || 0;
   if (rd < G.round) return;
-  if (rd > G.round) AH.adoptRound(rd, rs);
-  else if (rs > 0 && (G.rs === 0 || rs < G.rs)) AH.adoptStart(rs);
   const ch = AH.clamp(d[7] | 0, 0, AH.chars.length - 1);
   const g = AH.ghosts.get(id) || addGhost(id, ch);
-  if (g.ch !== ch) { g.ch = ch; g.mesh.geometry = AH.charGeo(ch); g.fly = !!AH.chars[ch].flies; }
+  if (g.ch !== ch) { g.ch = ch; g.fireOn = false; g.mesh.material = AH.VM; g.mesh.geometry = AH.charGeo(ch); setRig(g); }
   const was = g.dead, fl = d[10] | 0;
-  g.tx = d[0]; g.ty = d[1]; g.tz = d[2]; g.tr = d[3]; g.score = d[4] | 0; g.dead = !!d[5]; g.sy = d[6] || 1; g.fire = !!(fl & 1);
+  g.tx = d[0]; g.ty = d[1]; g.tz = d[2]; g.tr = d[3]; g.score = d[4] | 0; g.dead = !!d[5]; g.sy = d[6] || 1; g.fire = !!(fl & 1); g.fly = !!(fl & 4);
+  if (d[11] > 0) g.joinT = +d[11];
+  if (!!(fl & 1) !== !!g.fireOn) { g.fireOn = !!(fl & 1); g.mesh.geometry = g.fireOn ? AH.charFireGeo(ch) : AH.charGeo(ch); g.mesh.material = g.fireOn ? AH.FIREMAT : AH.VM; }
   if ((fl & 1) && !g.flames) { g.flames = AH.fx.makeFlames(); g.g.add(g.flames); }
   else if (!(fl & 1) && g.flames) { g.g.remove(g.flames); g.flames = null; }
   g.seen = performance.now();
   if (g.first) { g.first = false; g.g.position.set(g.tx, g.ty, g.tz); g.g.rotation.y = g.tr; }
-  else if (g.dead && !was && !g.fly) AH.burst(14, g.tx, 0.6, g.tz, [AH.chars[ch].col, 0xfff6ea, g.col], 3, 4.5);
+  else if (g.dead && !was) AH.burst(14, g.tx, 0.6, g.tz, [AH.chars[ch].col, 0xfff6ea, g.col], 3, 4.5);
+  // round bookkeeping comes last: adopting a newer round resets every ghost, which the next packet refills
+  if (rd > G.round) AH.adoptRound(rd, rs);
+  else if (rs > 0 && (G.rs === 0 || rs < G.rs)) AH.adoptStart(rs);
+  if (rd === G.round && d[12] > G.stall + 0.01) G.stall = +d[12];   // the wave's hold-back only ever grows, so the biggest value is the true one
 }
 
 /* ---- shared clock: every phone converges on the average of all phone clocks ---- */
@@ -98,11 +113,20 @@ NET.connect = async function () {
     NET.send.sy = mk('sy', onSync);
     NET.send.bs = mk('bs', function (d, a) { if (!NET.isHost() && AH.boss && Array.isArray(d)) AH.boss.apply(d); });
     NET.send.ev = mk('ev', function (d, a) { if (Array.isArray(d)) handleEvent(d[0], d[1]); });
-    try { room.onPeerJoin = function () { NET.lastSend = 0; NET.syncT = 0; }; } catch (e) {}
-    try { room.onPeerLeave = function (pid) { removeGhost(idOf(pid)); NET.sync.delete(idOf(pid)); }; } catch (e) {}
+    NET.joinT = Date.now();
+    const onJoin = function (pid) { NET.lastSend = 0; NET.syncT = 0; setTimeout(function () { NET.sendSnap(idOf(pid)); }, 250); };
+    const onLeave = function (pid) { removeGhost(idOf(pid)); NET.sync.delete(idOf(pid)); };
+    try { if (typeof room.onPeerJoin === 'function') room.onPeerJoin(onJoin); } catch (e) {}
+    try { if (typeof room.onPeerLeave === 'function') room.onPeerLeave(onLeave); } catch (e) {}
     NET.room = room; NET.note = '';
   } catch (e) { NET.note = 'Multiplayer could not start here'; }
   NET.connecting = false; NET.refresh();
+};
+
+/* the host tells a newcomer what has happened in this round so far: broken hazards and trees, beaten arenas, the wave's hold-back */
+NET.sendSnap = function (pid) {
+  if (!pid || !NET.send.ev || !NET.isHost() || G.rs <= 0) return;
+  try { NET.send.ev(['snap', { rd: G.round, rs: G.rs, stall: +G.stall.toFixed(2), w: AH.world.snapshot() }], pid); } catch (e) {}
 };
 
 NET.tick = function (dt, now) {
@@ -110,7 +134,7 @@ NET.tick = function (dt, now) {
   if (NET.send.st && now - NET.lastSend > 100) {
     NET.lastSend = now;
     const fl = (P.burn ? 1 : 0) | (P.glow ? 2 : 0) | (P.fly ? 4 : 0);
-    try { NET.send.st([+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2), +AH.pg.rotation.y.toFixed(2), G.score, P.dead ? 1 : 0, +AH.pscale.scale.y.toFixed(2), P.chi, G.round, G.rs, fl]); } catch (e) {}
+    try { NET.send.st([+P.x.toFixed(2), +(P.y + P.lift).toFixed(2), +P.z.toFixed(2), +AH.pg.rotation.y.toFixed(2), G.score, P.dead ? 1 : 0, +AH.pscale.scale.y.toFixed(2), P.chi, G.round, G.rs, fl, NET.joinT, +G.stall.toFixed(2)]); } catch (e) {}
   }
   NET.syncT -= dt;
   if (NET.syncT <= 0 && NET.send.sy) { NET.syncT = 2.5; try { NET.send.sy({ a: Date.now() }); } catch (e) {} }
