@@ -9,7 +9,7 @@
 (function () {
 'use strict';
 const AH = window.AH, T = AH.T, W = AH.world, COLS = AH.COLS;
-const B = AH.boss = { on: false, A: 0, st: 'none', tm: 0, hp: 0, max: 10, x: 0, z: 0, rot: 0, px: 0, pz: 0, prot: 0, ax: 0, az: 0, dir: [0, -1], axT: 0, phase: 1, pools: [], mets: [], kit: { summon: true }, chaseT: 3, flash: 0, hitFlag: false, hitDir: [0, -1], hitCd: 0, group: null, body: null, mat: null, parts: [], mode: 'walk', ph: 0, mv: 0, lx: 0, lz: 0, sq: 0, kick: 0, kd: [0, 0], th: null, lhp: 0, sent: 0, name: '', locked: false };
+const B = AH.boss = { on: false, A: 0, st: 'none', tm: 0, hp: 0, max: 10, x: 0, z: 0, rot: 0, px: 0, pz: 0, prot: 0, ax: 0, az: 0, dir: [0, -1], axT: 0, phase: 1, obs: [], mets: [], kit: { summon: true }, chaseT: 3, flash: 0, hitFlag: false, hitDir: [0, -1], hitCd: 0, group: null, body: null, mat: null, parts: [], mode: 'walk', ph: 0, mv: 0, lx: 0, lz: 0, sq: 0, kick: 0, kd: [0, 0], th: null, lhp: 0, sent: 0, name: '', locked: false };
 const R_BODY = 1.7, SLAM_R = 2.7, CONE_LEN = 8, CONE_HALF = 0.5, MET_R = 1.4, MET_WARN = 1.2;
 
 /* ---- the creature: every arena gets a guardian that fits its zone (see creatures.js) ---- */
@@ -25,16 +25,12 @@ const cone = (function () {
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); g.setIndex(idx);
   return new T.Mesh(g, tmat(0xe5484d));
 })();
-[circle, lane, cone].forEach(m => { m.visible = false; m.position.y = 0.06; m.renderOrder = 2; AH.scene.add(m); });
-/* phase 2 floor hazards and falling meteors */
-const poolMeshes = [], metMeshes = [];
-for (let i = 0; i < 6; i++) {
-  const g = new T.Group(), a = new T.Mesh(discGeo, tmat(0xff6a1a)), c = new T.Mesh(discGeo, tmat(0x1a0d0d));
-  a.position.y = 0.05; c.position.y = 0.07; c.scale.set(0.72, 1, 0.72); g.add(a, c); g.visible = false; AH.scene.add(g); poolMeshes.push({ g: g, a: a, c: c });
-}
+[circle, lane, cone].forEach(m => { m.visible = false; m.position.y = 0.3; m.renderOrder = 2; AH.scene.add(m); });
+/* phase 2 obstacles (see makeObstacles) and falling meteors */
+const obsMeshes = [], metMeshes = [];
 for (let i = 0; i < 8; i++) {
   const g = new T.Group(), d = new T.Mesh(discGeo, tmat(0xe5484d)), r = new T.Mesh(AH.BOX, AH.M(0x6b5a5a));
-  d.position.y = 0.07; r.scale.set(0.9, 0.9, 0.9); g.add(d, r); g.visible = false; AH.scene.add(g); metMeshes.push({ g: g, d: d, r: r });
+  d.position.y = 0.32; r.scale.set(0.9, 0.9, 0.9); g.add(d, r); g.visible = false; AH.scene.add(g); metMeshes.push({ g: g, d: d, r: r });
 }
 const zzz = new T.Group();
 for (let i = 0; i < 3; i++) { const m = new T.Mesh(AH.BOX, AH.M(0xffffff)); m.scale.set(0.3, 0.3, 0.06); zzz.add(m); }
@@ -44,9 +40,10 @@ zzz.visible = false; AH.scene.add(zzz);
 const ringGeo = new T.RingGeometry(0.82, 1, 40).rotateX(-Math.PI / 2);
 const rings = [];
 function ring(x, z, r, col, life, y) {
+  y = 0.3 + (y || 0.08);
   if (rings.length > 14) { const o = rings.shift(); AH.scene.remove(o.m); o.m.material.dispose(); }
   const m = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthWrite: false, side: T.DoubleSide }));
-  m.position.set(x, y || 0.08, z); m.renderOrder = 3; AH.scene.add(m);
+  m.position.set(x, y, z); m.renderOrder = 3; AH.scene.add(m);
   rings.push({ m: m, r: r, t: 0, life: life || 0.5 });
 }
 function boom(x, z, r, shake, big) {
@@ -81,8 +78,8 @@ const RAGES = ['ENOUGH!', 'NOW YOU SEE MY TRUE FORM!', 'THE GROUND WILL BURN!', 
 
 /* effects every phone plays when the boss changes state (no game logic here) */
 function onEnter(st) {
-  if (st === 'roar') { AH.shout && AH.shout(ROARS[(B.A / AH.ARENA_EVERY) % ROARS.length | 0]); AH.toast && B.name && AH.toast(B.name.toUpperCase(), 2400); AH.cam.shake = Math.max(AH.cam.shake, 0.6); AH.beep(70, 1.4, 'sawtooth', 0.1, -20); }
-  else if (st === 'rage') { AH.shout && AH.shout(RAGES[(B.A / AH.ARENA_EVERY) % RAGES.length | 0]); AH.cam.shake = Math.max(AH.cam.shake, 0.7); AH.beep(60, 1.6, 'sawtooth', 0.11, -20); }
+  if (st === 'roar') { AH.shout && AH.shout(ROARS[AH.arenaIdx(B.A) % ROARS.length]); AH.toast && B.name && AH.toast(B.name.toUpperCase(), 2400); AH.cam.shake = Math.max(AH.cam.shake, 0.6); AH.beep(70, 1.4, 'sawtooth', 0.1, -20); }
+  else if (st === 'rage') { AH.shout && AH.shout(RAGES[AH.arenaIdx(B.A) % RAGES.length]); AH.cam.shake = Math.max(AH.cam.shake, 0.7); AH.beep(60, 1.6, 'sawtooth', 0.11, -20); }
   else if (st === 'slam') { boom(B.ax, B.az, SLAM_R * 1.25, 0.4, true); AH.beep(90, 0.25, 'square', 0.07, -40); }
   else if (st === 'cone') { const f = fwd(B.rot); for (let i = 1; i <= 4; i++) boom(B.x + f[0] * i * 1.9, B.z + f[1] * i * 1.9, 0.9 + i * 0.3, i === 1 ? 0.3 : 0); AH.beep(120, 0.3, 'sawtooth', 0.06, 200); }
   else if (st === 'charge') { boom(B.x, B.z, 2.2, 0.15); }
@@ -94,12 +91,12 @@ function setSt(st) { B.st = st; B.tm = 0; B.locked = false; onEnter(st); }
 
 B.start = function (A) {
   if (B.on) return;
-  B.on = true; B.A = A; B.st = 'sleep'; B.tm = 0; B.hp = B.max; B.phase = 1; B.pools = []; B.mets = []; B.x = B.px = 0; B.z = B.pz = -(A + 12);
+  B.on = true; B.A = A; B.st = 'sleep'; B.tm = 0; B.hp = B.max; B.phase = 1; B.obs = []; B.mets = []; B.x = B.px = 0; B.z = B.pz = -(A + 12);
   B.rot = B.prot = 0; B.dir = [0, -1]; B.axT = 0; B.chaseT = 3; B.flash = 0;
   const seed = (AH.roomSeed || 'solo') + ':boss:' + A, kr = AH.seeded(seed + ':kit');
-  B.kit = { summon: kr() < 0.7 };
   const th0 = AH.themeAt(A), cr = AH.creatures.make(th0, seed);
   B.name = cr.name; B.locked = false; B.mode = cr.mode; B.th = th0;
+  B.kit = { summon: kr() < 0.7 && cr.mode === 'float' };        // only the hovering casters throw boulders; the melee guardians fight with their bodies
   B.hitCd = 0; B.sq = 0; B.kick = 0; B.mv = 0; B.ph = 0; B.lx = B.x; B.lz = B.z; B.lhp = B.hp;
   B.mat = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0x000000 });
   B.group = new T.Group(); B.body = new T.Group(); B.group.add(B.body); B.parts = [];
@@ -110,15 +107,15 @@ B.start = function (A) {
   });
   B.group.position.set(B.x, 0, B.z); AH.scene.add(B.group);
   const th = th0;
-  poolMeshes.forEach(p => { p.a.material.color.setHex(th.arena.flame[0]); p.c.material.color.setHex(th.arena.pillar[1]); });
   AH.emit('boss-start', A);
 };
 B.clear = function () {
   if (B.group) AH.scene.remove(B.group);
   rings.forEach(q => { AH.scene.remove(q.m); q.m.material.dispose(); }); rings.length = 0;
-  B.group = null; B.body = null; B.parts = []; B.on = false; B.st = 'none'; B.phase = 1; B.pools = []; B.mets = [];
+  B.group = null; B.body = null; B.parts = [];
+  obsMeshes.forEach(o => AH.scene.remove(o.g)); obsMeshes.length = 0; B.on = false; B.st = 'none'; B.phase = 1; B.obs = []; B.mets = [];
   circle.visible = lane.visible = cone.visible = zzz.visible = false;
-  poolMeshes.forEach(p => p.g.visible = false); metMeshes.forEach(m => m.g.visible = false);
+  metMeshes.forEach(m => m.g.visible = false);
 };
 
 /* a hop into the boss: always counts (it has a short cooldown so a held button cannot melt it). dx,dz = the way the player was hopping. */
@@ -135,7 +132,6 @@ B.hurt = function (n, dx, dz) {
 
 B.lethalAt = function (x, z) {
   if (!B.on || B.st === 'dying' || B.st === 'sleep') return false;
-  if (B.phase >= 2) for (const p of B.pools) if (Math.hypot(x - p[0], z - p[1]) < p[2] - 0.15) return true;
   for (const m of B.mets) if (m.t >= MET_WARN && m.t < MET_WARN + 0.35 && Math.hypot(x - m.x, z - m.z) < MET_R) return true;
   const d = Math.hypot(x - B.x, z - B.z);
   if ((B.st === 'rush' || B.st === 'charge') && d < R_BODY + 0.6) return true;      // a touch attack: the only time the body itself hurts
@@ -148,9 +144,13 @@ B.lethalAt = function (x, z) {
 };
 /* the boss is solid; a hop aimed at it is blocked and counts as a hit (the player code then knocks the player back) */
 B.R = R_BODY + 0.6;
-B.blocks = function (x, z) { return B.on && B.st !== 'dying' && Math.hypot(x - B.x, z - B.z) < B.R; };
+const OBS_PLAYER = 0.9, OBS_BOSS = 2.1;
+const obsAt = (x, z) => B.obs.some(o => Math.hypot(x - o[0], z - o[1]) < OBS_PLAYER);
+const obsHit = (x, z) => B.obs.some(o => Math.hypot(x - o[0], z - o[1]) < OBS_BOSS);
+B.blocks = function (x, z) { return B.on && B.st !== 'dying' && (Math.hypot(x - B.x, z - B.z) < B.R || obsAt(x, z)); };
 B.hopCheck = function (x, z, p) {
   if (p && p.nohit) return false;                 // being shoved out of the boss must not be blocked by it
+  if (B.on && obsAt(x, z)) return true;           // an obstacle blocks the hop, but is not the boss
   if (!B.blocks(x, z)) return false;
   B.hitFlag = true;
   return true;
@@ -186,13 +186,22 @@ function spawnMeteors(n) {
   }
   if (B.mets.length > 8) B.mets.splice(0, B.mets.length - 8);
 }
-function makePools() {
-  const out = [];
-  for (let tries = 0; tries < 60 && out.length < 4; tries++) {
-    const x = rg(-COLS + 1.5, COLS - 1.5), z = -(B.A + rg(4, 12)), r = rg(1.1, 1.6);
-    if (out.every(p => Math.hypot(p[0] - x, p[1] - z) > p[2] + r + 1.6) && Math.hypot(x - B.x, z - B.z) > R_BODY + r + 0.8) out.push([+x.toFixed(2), +z.toFixed(2), +r.toFixed(2)]);
+/* enrage: the arena shakes and chunks of the environment crash down. They block the players AND the boss, so both have to path around them. */
+function makeObstacles() {
+  const out = [], ps = players();
+  for (let tries = 0; tries < 80 && out.length < 6; tries++) {
+    const x = Math.round(rg(-COLS + 1, COLS - 1)), z = -(B.A + Math.round(rg(3, 11)));
+    if (out.some(p => Math.max(Math.abs(p[0] - x), Math.abs(p[1] - z)) < 3)) continue;
+    if (Math.hypot(x - B.x, z - B.z) < 3.6 || ps.some(p => Math.hypot(p.x - x, p.z - z) < 2.2)) continue;
+    out.push([x, z, Math.random() < 0.5 ? 0 : 1, Math.random() < 0.45 ? 'rock' : 'low']);
   }
   return out;
+}
+/* move along B.dir; an obstacle in the way stops the boss (returns false) */
+function stepMove(dt, sp) {
+  const nx = B.x + B.dir[0] * sp * dt, nz = B.z + B.dir[1] * sp * dt;
+  if (obsHit(nx, nz) && !obsHit(B.x, B.z)) return false;
+  B.x = nx; B.z = nz; clampPos(); return true;
 }
 function think(dt) {
   B.tm += dt;
@@ -212,13 +221,14 @@ function think(dt) {
       break; }
     case 'roar': if (B.tm > 2.0) { setSt('chase'); B.chaseT = 2.2; } break;
     case 'rage':
-      if (B.tm > 0.9 && B.phase < 2) { B.phase = 2; B.pools = makePools(); AH.cam.shake = 0.6; }
+      if (B.tm > 0.9 && B.phase < 2) { B.phase = 2; B.obs = makeObstacles(); AH.cam.shake = 0.9; }
       if (B.tm > 2.4) { setSt('chase'); B.chaseT = 1.6; }
       break;
     case 'chase':
       if (tg) {
         B.axT -= dt; if (B.axT <= 0) { B.dir = pickDir(tg); B.axT = 0.4; }
-        face(dt, 7); B.x += B.dir[0] * spd * dt; B.z += B.dir[1] * spd * dt; clampPos();
+        face(dt, 7);
+        if (!stepMove(dt, spd)) { B.dir = B.dir[0] !== 0 ? [0, Math.sign(tg.z - B.z) || 1] : [Math.sign(tg.x - B.x) || 1, 0]; B.axT = 0.7; }
       }
       if (B.tm > B.chaseT) next();
       break;
@@ -228,12 +238,12 @@ function think(dt) {
       break;
     case 'charge': {
       const ox = B.x, oz = B.z, sp = p2 ? 16 : 14;
-      B.x += B.dir[0] * sp * dt; B.z += B.dir[1] * sp * dt; clampPos();
-      if (B.tm > 1.5 || Math.hypot(B.x - ox, B.z - oz) < sp * dt * 0.3) setSt('recover');
+      const moved = stepMove(dt, sp);
+      if (!moved || B.tm > 1.5 || Math.hypot(B.x - ox, B.z - oz) < sp * dt * 0.3) setSt('recover');
       break; }
     case 'trush': if (B.tm > 0.7) setSt('rush'); break;                                   // turns red...
     case 'rush':                                                                          // ...then hunts the nearest player for a moment; touching it now is fatal
-      if (tg) { B.axT -= dt; if (B.axT <= 0) { B.dir = pickDir(tg); B.axT = 0.25; } face(dt, 10); B.x += B.dir[0] * (p2 ? 5.4 : 4.6) * dt; B.z += B.dir[1] * (p2 ? 5.4 : 4.6) * dt; clampPos(); }
+      if (tg) { B.axT -= dt; if (B.axT <= 0) { B.dir = pickDir(tg); B.axT = 0.25; } face(dt, 10); if (!stepMove(dt, p2 ? 5.4 : 4.6)) { B.dir = B.dir[0] !== 0 ? [0, Math.sign(tg.z - B.z) || 1] : [Math.sign(tg.x - B.x) || 1, 0]; B.axT = 0.5; } }
       if (B.tm > 1.8) { setSt('chase'); B.chaseT = chaseT(); }
       break;
     case 'tslam':
@@ -258,7 +268,7 @@ function think(dt) {
 /* ---- network state ---- */
 const r2 = v => +v.toFixed(2);
 B.pack = function () {
-  return [B.A, B.st, r2(B.x), r2(B.z), r2(B.rot), B.hp, r2(B.ax), r2(B.az), r2(B.tm), B.phase, B.pools, B.mets.map(m => [r2(m.x), r2(m.z), r2(m.t)])];
+  return [B.A, B.st, r2(B.x), r2(B.z), r2(B.rot), B.hp, r2(B.ax), r2(B.az), r2(B.tm), B.phase, B.obs, B.mets.map(m => [r2(m.x), r2(m.z), r2(m.t)])];
 };
 B.apply = function (s) {
   if (!B.on) { if (s[1] === 'none') return; B.start(s[0]); }
@@ -271,7 +281,7 @@ B.apply = function (s) {
   }
   if (s[5] < B.hp && B.body) { B.flash = 0.25; B.kick = 0.35; B.sq = 0.3; AH.burst(8, B.px, 1.6, B.pz, [0xffffff, 0xffd23f], 3, 4); AH.beep(200, 0.15, 'square', 0.06, -100); }
   B.hp = s[5];
-  B.pools = s[10] || []; const om = B.mets; B.mets = (s[11] || []).map(a => { const o = om.find(m => m.x === a[0] && m.z === a[1]); return { x: a[0], z: a[1], t: a[2], b: o ? o.b : (a[2] >= MET_WARN ? 1 : 0) }; });
+  B.obs = s[10] || []; const om = B.mets; B.mets = (s[11] || []).map(a => { const o = om.find(m => m.x === a[0] && m.z === a[1]); return { x: a[0], z: a[1], t: a[2], b: o ? o.b : (a[2] >= MET_WARN ? 1 : 0) }; });
 };
 
 /* ---- per frame (everyone) ---- */
@@ -354,17 +364,23 @@ B.update = function (dt) {
   if (sleeping) zzz.children.forEach((m, i) => { const q = ((now * 0.5 + i / 3) % 1); m.position.set(B.x + 0.9 + q * 0.8, 3.4 + q * 1.4, B.z); m.scale.set(0.3 + q * 0.2, 0.3 + q * 0.2, 0.06); });
   // telegraphs
   circle.visible = s === 'tslam' || s === 'slam';
-  if (circle.visible) { circle.position.set(B.ax, 0.06, B.az); circle.scale.set(SLAM_R, 1, SLAM_R); circle.material.opacity = s === 'slam' ? 0.7 : 0.25 + 0.15 * Math.sin(B.tm * 18); }
+  if (circle.visible) { circle.position.set(B.ax, 0.3, B.az); circle.scale.set(SLAM_R, 1, SLAM_R); circle.material.opacity = s === 'slam' ? 0.7 : 0.25 + 0.15 * Math.sin(B.tm * 18); }
   lane.visible = s === 'tcharge';
-  if (lane.visible) { lane.position.set(B.x, 0.06, B.z); lane.rotation.y = B.rot; lane.scale.set(3.4, 1, 16); lane.material.opacity = 0.2 + 0.15 * Math.sin(B.tm * 18); }
+  if (lane.visible) { lane.position.set(B.x, 0.3, B.z); lane.rotation.y = B.rot; lane.scale.set(3.4, 1, 16); lane.material.opacity = 0.2 + 0.15 * Math.sin(B.tm * 18); }
   cone.visible = s === 'tcone' || s === 'cone';
-  if (cone.visible) { cone.position.set(B.x, 0.06, B.z); cone.rotation.y = B.rot; cone.scale.set(CONE_LEN, 1, CONE_LEN); cone.material.opacity = s === 'cone' ? 0.7 : 0.25 + 0.15 * Math.sin(B.tm * 18); }
-  // phase 2 floor hazards
-  poolMeshes.forEach((p, i) => {
-    const q = B.phase >= 2 && B.pools[i];
-    p.g.visible = !!q && s !== 'dying';
-    if (q) { p.g.position.set(q[0], 0, q[1]); p.a.scale.set(q[2], 1, q[2]); p.c.scale.set(q[2] * 0.72, 1, q[2] * 0.72); p.a.material.opacity = 0.55 + 0.2 * Math.sin(now * 5 + i); }
+  if (cone.visible) { cone.position.set(B.x, 0.3, B.z); cone.rotation.y = B.rot; cone.scale.set(CONE_LEN, 1, CONE_LEN); cone.material.opacity = s === 'cone' ? 0.7 : 0.25 + 0.15 * Math.sin(B.tm * 18); }
+  // phase 2 obstacles: they drop in from above with a thump, then stay
+  while (obsMeshes.length < B.obs.length) {
+    const o = B.obs[obsMeshes.length], th = B.th || AH.themeAt(B.A), m = new T.Mesh(W.propGeo(th, o[3] || 'rock', o[2]), AH.VM), g = new T.Group();
+    m.castShadow = true; g.add(m); g.position.set(o[0], 9, o[1]); const sc = 1.45 + (o[0] * 7 + o[1] * 3 & 3) * 0.12; g.scale.set(sc, sc * (1 + ((o[0] + o[1]) & 1) * 0.35), sc); g.rotation.y = (o[0] * 3 + o[1]) & 3;
+    AH.scene.add(g); obsMeshes.push({ g: g, vy: 0, down: false });
+  }
+  obsMeshes.forEach((q, i) => {
+    const o = B.obs[i]; q.g.visible = !!o && s !== 'dying'; if (!o || q.down) return;
+    q.vy += 38 * dt; q.g.position.y -= q.vy * dt;
+    if (q.g.position.y <= 0) { q.g.position.y = 0; q.down = true; boom(o[0], o[1], 2.2, 0.35); AH.beep(70, 0.25, 'square', 0.07, -40); }
   });
+  if (!B.obs.length && obsMeshes.length) { obsMeshes.forEach(o => AH.scene.remove(o.g)); obsMeshes.length = 0; }
   // meteors: a growing warning circle, a rock falling into it, then a blast that is deadly for a moment
   metMeshes.forEach((m, i) => {
     const q = B.mets[i];

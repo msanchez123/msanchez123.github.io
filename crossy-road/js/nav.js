@@ -43,6 +43,7 @@ Nav.safe = function (row, x, t, land) {
   if (row.type === 'road' || row.type === 'roll' || row.type === 'rail') {
     if (W.hitAt(row, x, t - 0.08, 0.5) || W.hitAt(row, x, t, 0.5) || W.hitAt(row, x, t + 0.12, 0.5)) return false;
   }
+  if (AH.wild && AH.wild.dangerAt(x, -row.r)) return false;
   const b = AH.boss;
   if (b && b.on) {
     const z = -row.r;

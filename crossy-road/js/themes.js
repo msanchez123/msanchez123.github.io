@@ -89,7 +89,7 @@ const THEMES = AH.THEMES = [
 /* creature skins for the traffic lanes: zones with an entry here run beasts instead of cars (small = car slot, big = truck slot) */
 AH.BEASTS = { winter: { small: 'wolf', big: 'mammoth' }, desert: { small: 'scarab', big: 'scorpion' }, temple: { small: 'jaguar', big: 'boar' }, volcano: { small: 'salamander', big: 'tortoise' } };
 
-AH.zoneOf = r => Math.max(0, Math.floor((r - AH.ARENA_LEN) / AH.ARENA_EVERY));
+AH.zoneOf = r => r < AH.ARENA_EVERY + AH.ARENA_LEN ? 0 : Math.floor((r - AH.ARENA_EVERY - AH.ARENA_LEN) / AH.PERIOD) + 1;
 AH.themeAt = r => THEMES[AH.zoneOf(r) % THEMES.length];
 
 /* ---- sky and light follow whichever zone the camera is looking at, with a soft crossfade ---- */

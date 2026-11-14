@@ -165,7 +165,7 @@ function land() {
   P.jumping = false; P.x = P.toX; P.z = P.toZ; P.row = P.toRow; P.baseY = P.toBase; P.y = P.baseY;
   if (!P.bounce && occupied(P.x, P.row)) { bounceBack(); return; }
   if (!W.get(P.row)) return;
-  if (P.row > G.score) { G.score = P.row; AH.emit('score'); }
+  if (AH.scoreOf(P.row) > G.score) { G.score = AH.scoreOf(P.row); AH.emit('score'); }
   if (P.fly) P.log = null;
   else if (!PL.settle()) return;
   if (P.big) { AH.burst(12, P.x, 0.1, P.z, [0xffd23f, 0xffffff], 3.4, 3); AH.cam.shake = Math.max(AH.cam.shake, 0.2); P.big = false; }
@@ -179,7 +179,7 @@ PL.die = function (kind) {
   P.dead = true; P.kind = kind; G.state = 'dead'; G.deadT = 0; P.jumping = false; P.holding = false; P.auto = false; P.inv = false; P.fly = false;
   $('start').hidden = true; $('hint').hidden = true;
   const cc = P.ch.col;
-  if (kind === 'car' || kind === 'boss') { AH.burst(16, P.x, 0.6, P.z, [cc, 0xfff6ea, 0xffd23f], 3.2, 4.5); AH.cam.shake = 0.45; AH.beep(150, 0.28, 'sawtooth', 0.08, -100); }
+  if (kind === 'car' || kind === 'boss' || kind === 'beast') { AH.burst(16, P.x, 0.6, P.z, [cc, 0xfff6ea, 0xffd23f], 3.2, 4.5); AH.cam.shake = 0.45; AH.beep(150, 0.28, 'sawtooth', 0.08, -100); }
   else if (kind === 'snow') { AH.burst(20, P.x, 0.8, P.z, [0xffffff, 0xe6f4ff], 3, 5); AH.cam.shake = 0.5; AH.beep(80, 0.6, 'sawtooth', 0.09, -40); }
   else { AH.burst(18, P.x, 0, P.z, [0x7cc8ff, 0xffffff, 0x3aa0e8], 2.6, 6.5); AH.beep(320, 0.32, 'sine', 0.07, -220); }
   if (G.score > G.best) {

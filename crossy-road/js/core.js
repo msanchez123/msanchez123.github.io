@@ -6,7 +6,12 @@ const AH = window.AH = { T: T };
 AH.COLS = 7; AH.MINROW = -8; AH.WRAP = 22; AH.PER = 44;
 AH.JD = 0.17; AH.LOGTOP = 0.17; AH.PADY = 0.08; AH.FLYY = 1.9;
 AH.DIRS = { F: [0, -1], B: [0, 1], L: [-1, 0], R: [1, 0] };
-AH.ARENA_EVERY = 50; AH.ARENA_LEN = 15;
+AH.ARENA_EVERY = 50; AH.ARENA_LEN = 15; AH.PERIOD = AH.ARENA_EVERY + AH.ARENA_LEN;
+/* arenas sit EVERY normal lanes apart (the arena itself is not counted): first at EVERY, then every PERIOD */
+AH.nextArena = r => r < AH.ARENA_EVERY ? AH.ARENA_EVERY : AH.ARENA_EVERY + (Math.floor((r - AH.ARENA_EVERY) / AH.PERIOD) + 1) * AH.PERIOD;
+AH.arenaIdx = A => Math.round((A - AH.ARENA_EVERY) / AH.PERIOD);
+/* score = lanes crossed, with the arenas themselves removed, so every stretch between bosses is the same length */
+AH.scoreOf = r => { if (r < AH.ARENA_EVERY) return Math.max(0, r); const o = r - AH.ARENA_EVERY, k = Math.floor(o / AH.PERIOD), q = o % AH.PERIOD; return q < AH.ARENA_LEN ? AH.ARENA_EVERY * (k + 1) : r - (k + 1) * AH.ARENA_LEN; };
 AH.chars = [];
 const clamp = AH.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 AH.lerp = (a, b, t) => a + (b - a) * t;

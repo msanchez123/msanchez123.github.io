@@ -96,17 +96,19 @@ function scorpion(x) {
   [[1.9, 1.15], [2.35, 1.8], [2.4, 2.5], [2.0, 3.15], [1.4, 3.6]].forEach((p, i) => b.box(0.7 - i * 0.05, 0.7 - i * 0.05, 0.7 - i * 0.05, i % 2 ? shL : sh, 0, p[1], p[0] - 0.4));
   b.box(0.28, 0.8, 0.28, 0xffd23f, 0, 3.4, 0.7);
 }
-function sphinx(x) {
-  const b = x.b, sand = 0xdcb872, sandD = 0xb89452, gold = 0xf2c14e, blue = 0x2a6fdb;
-  b.box(2.2, 1.5, 3.4, sand, 0, 1.0, 0.9).box(2.4, 0.3, 3.5, sandD, 0, 0.15, 0.9);
-  MIR.forEach(s => b.box(0.8, 0.7, 1.7, sand, s * 0.7, 0.45, -1.6).box(0.9, 0.2, 0.5, sandD, s * 0.7, 0.1, -2.35).box(0.14, 0.14, 0.1, 0xffffff, s * 0.7, 0.2, -2.63));
-  b.box(2.0, 1.8, 1.4, sand, 0, 2.0, -0.4).box(1.3, 1.2, 1.2, 0xc9985a, 0, 3.35, -0.7);
-  b.box(2.1, 1.4, 1.5, gold, 0, 3.35, -0.45).box(1.34, 1.24, 0.3, 0xc9985a, 0, 3.3, -1.3);
-  MIR.forEach(s => b.box(0.18, 1.2, 1.5, blue, s * 0.78, 3.3, -0.4).box(0.25, 0.16, 0.12, 0x2fe0ff, s * 0.3, 3.45, -1.42).box(0.18, 0.16, 0.1, 0x111111, s * 0.3, 3.45, -1.47));
-  b.box(0.3, 0.7, 0.2, gold, 0, 2.6, -1.35).box(0.2, 0.4, 0.2, gold, 0, 4.2, -1.2).box(0.14, 0.2, 0.14, 0xe5484d, 0, 4.5, -1.2);
-  b.box(0.35, 0.35, 1.5, sand, 0.9, 1.3, 2.9).box(0.4, 0.4, 0.4, sandD, 0.9, 1.3, 3.7);
-  MIR.forEach(s => b.box(0.5, 1.8, 1.6, lit(sand, 0.1), s * 1.3, 2.3, 0.9));   // folded wings
+function scarab(x) {
+  const b = x.b, R = x.R, sh = 0x1f7a6a, shL = 0x2fb0a0, gold = 0xf2c14e, dk = 0x143a34, horn = 0xe6d9ae;
+  b.box(2.2, 0.5, 2.8, dk, 0, 0.85, 0.3);                                                              // belly
+  b.box(3.0, 0.9, 3.4, sh, 0, 1.4, 0.35).box(2.6, 0.7, 3.0, shL, 0, 2.05, 0.35).box(1.9, 0.4, 2.4, sh, 0, 2.55, 0.35);   // domed shell
+  b.box(0.14, 0.3, 3.2, gold, 0, 2.5, 0.35);
+  for (let i = 0; i < 3; i++) b.box(3.04, 0.12, 0.26, gold, 0, 1.8, -0.6 + i * 1.1);                  // gold bands
+  MIR.forEach(s => b.box(0.16, 0.7, 2.8, shD(sh), s * 1.55, 1.9, 0.35));                              // wing-case seams
+  b.box(1.6, 0.8, 0.9, dk, 0, 1.25, -1.9).box(1.1, 0.5, 0.6, sh, 0, 1.65, -2.0);                      // head
+  MIR.forEach(s => b.box(0.26, 0.26, 0.1, 0xff3b3b, s * 0.5, 1.45, -2.4).box(0.2, 0.2, 0.9, horn, s * 0.55, 0.9, -2.7).box(0.2, 0.5, 0.2, horn, s * 0.6, 1.0, -3.1));   // eyes, mandibles
+  b.box(0.3, 0.3, 1.2, horn, 0, 2.0, -2.7).box(0.3, 0.9, 0.3, horn, 0, 2.4, -3.2).box(0.3, 0.3, 0.5, horn, 0, 2.85, -3.0);   // horn
+  for (let i = 0; i < 3; i++) { const z = -0.9 + i * 1.3; MIR.forEach(s => b.box(1.2, 0.3, 0.3, dk, s * 1.9, 0.9, z).box(0.3, 0.9, 0.3, dk, s * 2.45, 0.45, z).box(0.5, 0.12, 0.4, dk, s * 2.5, 0.06, z)); }   // six legs
 }
+const shD = c => ((c >> 17 & 0x7f) << 16) | ((c >> 9 & 0x7f) << 8) | (c >> 1 & 0x7f);
 function crab(x) {
   const b = x.b, th = x.th, id = th.id;
   const sh = { desert: 0xd98a4a, volcano: 0x2f2a36, city: 0x8a96a3, forest: 0xd9573a }[id] || 0xd9573a, shL = id === 'volcano' ? 0xff6a1a : lit(sh, 0.2), shD = lit(sh, -0.3);
@@ -189,7 +191,7 @@ const ARCH = {
   yeti: { name: 'The Yeti', fn: yeti, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 1.5, y: 3.2, z: 0 } },
   golem: { name: 'Colossus', fn: golem, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 1.3, y: 3.4, z: 0 } },
   scorpion: { name: 'Dune Scorpion', fn: scorpion, mode: 'walk', arms: { pred: b => b[6] < -1.2 && Math.abs(b[4]) > 0.6, y: 1.0, z: -1.2 }, tail: { pred: b => b[6] > 1.3 && b[5] > 1.1, y: 1.1, z: 1.4 } },
-  sphinx: { name: 'Sand Sphinx', fn: sphinx, mode: 'hop' },
+  scarab: { name: 'Titan Scarab', fn: scarab, mode: 'walk' },
   crab: { name: 'Giant Crab', fn: crab, mode: 'walk', arms: { pred: b => b[6] < -1.2 && Math.abs(b[4]) > 0.6, y: 1.2, z: -1.2 } },
   drake: { name: 'Ember Drake', fn: drake, mode: 'walk' },
   mech: { name: 'Demolition Mech', fn: mech, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 2.3, y: 4.2, z: 0 } },
@@ -198,7 +200,7 @@ const ARCH = {
   serpent: { name: 'Feathered Serpent', fn: serpent, mode: 'float' }
 };
 const POOLS = {
-  forest: ['mushroom', 'treant', 'bear', 'golem'], winter: ['mammoth', 'yeti', 'golem'], desert: ['scorpion', 'sphinx', 'crab', 'golem'],
+  forest: ['mushroom', 'treant', 'bear', 'golem'], winter: ['mammoth', 'yeti', 'golem'], desert: ['scorpion', 'scarab', 'crab', 'golem'],
   volcano: ['drake', 'golem', 'crab'], city: ['mech', 'dozer', 'crab', 'golem'], temple: ['totem', 'serpent', 'jaguar', 'golem']
 };
 const TITLE = { golem: { winter: 'Ice Colossus', volcano: 'Magma Colossus', desert: 'Sandstone Colossus', city: 'Concrete Colossus', temple: 'Temple Colossus', forest: 'Stone Colossus' },

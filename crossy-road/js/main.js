@@ -97,7 +97,7 @@ AH.spawnLate = function () {
   }
   if (!spot) spot = { r: row, x: 0 };
   Object.assign(P, { row: spot.r, x: spot.x, z: -spot.r, y: 0, baseY: 0, lift: 0, fly: false, log: null, jumping: false, buf: null, dead: false, kind: '' });
-  G.state = 'play'; G.score = spot.r; G.chaseZ = AH.chaseNow();
+  G.state = 'play'; G.score = AH.scoreOf(spot.r); G.chaseZ = AH.chaseNow();
   AH.pg.position.set(P.x, 0, P.z); AH.pg.visible = true;
   AH.cam.snap(P.x, P.z - 2.5);
   $('start').hidden = true; $('hint').hidden = true; $('over').hidden = true;
@@ -228,6 +228,7 @@ function frame(now) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0 && !G.spec) { $('hint').hidden = true; $('hint').textContent = 'Hold, then release to hop'; } }
 
   W.update(dt, P.x, P.z);
+  AH.wild && AH.wild.update(dt);
   PL.update(dt, PL.isHolding());
   AH.ghosts.forEach(function (g, id) {
     const k = Math.min(1, dt * 14), p = g.g.position;
@@ -311,7 +312,7 @@ function frame(now) {
   }
   if (allDead && !G.overShown && G.deadT > 0.9) {
     G.overShown = true;
-    const t = { car: 'Flattened!', water: 'Splash!', lost: 'Swept away!', snow: AH.chase ? AH.chase.death : 'Buried!', boss: 'Squashed!' };
+    const t = { car: 'Flattened!', water: 'Splash!', lost: 'Swept away!', snow: AH.chase ? AH.chase.death : 'Buried!', boss: 'Squashed!', beast: 'Caught by a wild beast!' };
     $('overTitle').textContent = AH.ghosts.size ? 'Round over!' : (t[P.kind] || 'Game over');
     paintPicker();
     $('overScore').textContent = G.score; $('overBest').textContent = G.best; $('newBest').hidden = !G.newBest;

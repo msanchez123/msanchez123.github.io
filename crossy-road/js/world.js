@@ -11,9 +11,9 @@ const W = AH.world = { rows: new Map(), gen: -9, run: 'grass', runLeft: 0, queue
 
 const wrapX = W.wrapX = v => ((v + WRAP) % PER + PER) % PER - WRAP;
 W.objX = (o, t) => wrapX(o.x0 + o.dir * o.speed * t);
-W.arenaStart = r => (r >= AH.ARENA_EVERY && r % AH.ARENA_EVERY < AH.ARENA_LEN) ? r - r % AH.ARENA_EVERY : -1;
+W.arenaStart = r => { const o = r - AH.ARENA_EVERY; return (o >= 0 && o % AH.PERIOD < AH.ARENA_LEN) ? r - o % AH.PERIOD : -1; };
 W.arena = A => W.arenas[A] || (W.arenas[A] = { beaten: false });
-W.firstOpenArena = function () { for (let A = AH.ARENA_EVERY; A < 5000; A += AH.ARENA_EVERY) if (!W.arena(A).beaten) return A; return 1e9; };
+W.firstOpenArena = function () { for (let A = AH.ARENA_EVERY; A < 5000; A += AH.PERIOD) if (!W.arena(A).beaten) return A; return 1e9; };
 const mixHex = (a, b, k) => new T.Color(a).lerp(new T.Color(b), k).getHex();
 
 /* ---- cached geometry (keyed by theme) ---- */
@@ -67,6 +67,31 @@ function treeParts(th, v) {
 const rockGeo = (th, v) => geo('rock' + th.id + v, () => { const r = th.rock; return v
   ? new Builder().box(0.85, 0.6, 0.75, r[0], 0, 0.3, 0).box(0.5, 0.3, 0.5, r[1], 0.05, 0.72, 0).build()
   : new Builder().box(0.7, 0.9, 0.7, r[2], 0, 0.45, 0).box(0.45, 0.35, 0.45, r[1], -0.05, 1.05, 0.03).build(); });
+/* a low themed blocker (fallen log, tall grass, snow mound, sandstone slab, basalt, crates, broken column...): variant 0 is chunky, 1 is a clump */
+const lowGeo = (th, v) => geo('low' + th.id + v, () => {
+  const b = new Builder(), t = th.tree, id = th.id;
+  if (id === 'winter') {
+    if (!v) b.box(0.95, 0.45, 0.8, 0xffffff, 0, 0.22, 0).box(0.6, 0.3, 0.55, 0xe9f5ff, 0.05, 0.55, 0).box(0.3, 0.2, 0.3, 0xffffff, -0.2, 0.8, 0.05);
+    else [[-0.25, 0.9], [0, 1.25], [0.28, 0.8]].forEach(q => b.box(0.28, q[1], 0.28, 0xbfe3f8, q[0], q[1] / 2, 0).box(0.16, q[1] * 0.7, 0.16, 0x7cc8f0, q[0], q[1] * 0.55, 0));
+  } else if (id === 'desert') {
+    if (!v) b.box(0.95, 0.5, 0.8, 0xd1ad70, 0, 0.25, 0).box(0.55, 0.32, 0.5, 0xe2c58e, 0.1, 0.66, 0).box(0.9, 0.08, 0.84, 0xc29a58, 0, 0.1, 0);
+    else { b.box(0.7, 0.6, 0.7, 0xb98f45, 0, 0.35, 0).box(0.5, 0.5, 0.5, 0x8a6a30, 0, 0.55, 0.02).box(0.2, 0.2, 0.2, 0xd9b36a, 0.15, 0.85, 0); }
+  } else if (id === 'volcano') {
+    if (!v) b.box(0.85, 0.5, 0.75, 0x2b2630, 0, 0.25, 0).box(0.5, 0.36, 0.5, 0x1f1a23, -0.05, 0.68, 0).box(0.12, 0.2, 0.76, 0xff5a14, 0.2, 0.52, 0);
+    else b.box(0.9, 0.3, 0.8, 0x3a3340, 0, 0.15, 0).box(0.5, 0.36, 0.5, 0x2b2630, 0, 0.48, 0).box(0.16, 0.1, 0.16, 0xffb43a, 0.05, 0.7, 0);
+  } else if (id === 'city') {
+    if (!v) b.box(0.85, 0.6, 0.85, 0x9b6b3a, 0, 0.3, 0).box(0.62, 0.5, 0.62, 0xb4854a, 0.04, 0.85, 0).box(0.9, 0.08, 0.14, 0xe5c98a, 0, 0.3, 0.43).box(0.66, 0.08, 0.14, 0xe5c98a, 0.04, 0.85, 0.32);
+    else { b.box(1.0, 0.62, 0.42, 0xe6e9f0, 0, 0.31, 0); for (let i = -2; i <= 2; i++) b.box(0.1, 0.5, 0.44, i % 2 ? 0xffe14a : 0x1c1f26, i * 0.2, 0.32, 0); }
+  } else if (id === 'temple') {
+    if (!v) b.box(0.62, 0.7, 0.62, 0xb5ae8a, 0, 0.35, 0).box(0.5, 0.36, 0.5, 0x9a9170, 0.05, 0.88, 0.03).box(0.66, 0.1, 0.66, 0x8a8560, 0, 0.05, 0);
+    else b.box(0.9, 0.55, 0.8, 0x9a9170, 0, 0.28, 0).box(0.7, 0.14, 0.62, 0x4f8f3f, 0, 0.6, 0).box(0.1, 0.5, 0.1, 0x3f7a2a, 0.35, 0.4, 0.4);
+  } else {                                               // forest / default: fallen log, or a patch of tall grass and bushes
+    if (!v) b.box(1.0, 0.5, 0.5, t.trunk, 0, 0.25, 0).box(0.1, 0.4, 0.4, 0xd9b27c, -0.52, 0.25, 0).box(0.1, 0.4, 0.4, 0xd9b27c, 0.52, 0.25, 0).box(0.7, 0.1, 0.4, t.a[0], 0, 0.55, 0);
+    else for (let i = 0; i < 7; i++) { const h = 0.7 + ((i * 37) % 5) * 0.12; b.box(0.14, h, 0.14, i % 2 ? t.a[0] : t.b[0], -0.36 + (i % 4) * 0.24, h / 2, -0.2 + (i % 3) * 0.2); }
+  }
+  return b.build();
+});
+W.propGeo = (th, mode, v) => mode === 'rock' ? rockGeo(th, v) : lowGeo(th, v);
 const padGeo = th => geo('pad' + th.id, () => { const p = th.pad; return new Builder().box(0.92, 0.1, 0.62, p[0], 0, 0, 0).box(0.62, 0.1, 0.92, p[0], 0, 0, 0).box(0.78, 0.1, 0.78, p[1], 0, 0, 0)
   .box(0.5, 0.05, 0.5, p[2], 0, 0.06, 0).box(0.06, 0.05, 0.34, p[3], 0, 0.09, 0.2).build(); });
 const fenceGeo = th => geo('fence' + th.id, () => new Builder().box(0.9, 1.3, 0.3, th.fence[0], 0, 0.65, 0).box(0.96, 0.18, 0.34, th.fence[1], 0, 1.2, 0).box(0.96, 0.18, 0.34, th.fence[1], 0, 0.5, 0).build());
@@ -83,10 +108,50 @@ function buildCar(len, color, dir, truck) {
   b.box(0.06, 0.12, 0.14, 0xfff1a6, dir * L / 2, 0.5, 0.26).box(0.06, 0.12, 0.14, 0xfff1a6, dir * L / 2, 0.5, -0.26);
   return b.build();
 }
+/* a natural log: lumpy rounded trunk of several differently thick segments, bark strips, end rings, knots, a branch stub and a themed finish */
+/* directional current: flat streak quads in one cached geometry; the row slides it along the flow and wraps it every PERIOD so it never ends */
+const FLOWP = 12;
+function flowGeo(th, variant) {
+  return geo('flow' + th.id + variant, () => {
+    const lava = th.id === 'volcano', c1 = lava ? 0xffb43a : mixHex(th.water, 0xffffff, 0.45), c2 = lava ? 0xff7a1a : mixHex(th.water, 0xffffff, 0.22);
+    const P = [], N = [], C = [], I = [], col = new T.Color(), y = -0.27;
+    let q = 0;
+    const quad = (x0, x1, z0, z1, hex) => {
+      col.setHex(hex);
+      [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].forEach(p => { P.push(p[0], y, p[1]); N.push(0, 1, 0); C.push(col.r, col.g, col.b); });
+      I.push(q, q + 2, q + 1, q, q + 3, q + 2); q += 4;
+    };
+    const lr = AH.seeded('flow' + th.id + variant), R = (a, b) => a + lr() * (b - a);
+    for (let k = -3; k <= 3; k++) for (let i = 0; i < 5; i++) {
+      const x = k * FLOWP + (i + R(0, 0.9)) * FLOWP / 5 - 3, len = R(0.7, 2.4), z = R(-0.38, 0.38), wd = R(0.03, 0.07);
+      quad(x, x + len, z - wd, z + wd, i % 2 ? c1 : c2);
+      if (lr() < 0.5) quad(x + len * 0.6, x + len * 0.6 + 0.5, z + 0.12, z + 0.12 + wd * 0.8, c1);        // short side ripple, gives the streaks a wavy feel
+    }
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(N, 3)); g.setAttribute('color', new T.Float32BufferAttribute(C, 3));
+    g.setIndex(I); return g;
+  });
+}
+function addFlow(row, th, dir, sp) {
+  const m = new T.Mesh(flowGeo(th, ri(0, 2)), VM); row.group.add(m);
+  row.flow = { m: m, v: dir * sp * 0.9, off: rnd(0, FLOWP) };
+}
 function buildLog(len, th) {
-  const l = th.log;
-  return new Builder().box(len, 0.3, 0.84, l[0], 0, 0, 0).box(len * 0.9, 0.04, 0.3, l[1], 0, 0.16, 0)
-    .box(0.08, 0.26, 0.7, l[2], len / 2, 0, 0).box(0.08, 0.26, 0.7, l[2], -len / 2, 0, 0).build();
+  const l = th.log, id = th.id, b = new Builder(), w0 = rnd(0.55, 0.92), h0 = rnd(0.3, 0.36), dark = mixHex(l[0], 0x000000, 0.28), bark = mixHex(l[0], 0x000000, 0.1);
+  const nseg = Math.max(2, Math.round(len / 1.1)), sl = len / nseg;
+  for (let i = 0; i < nseg; i++) {
+    const x = -len / 2 + sl * (i + 0.5), k = rnd(0.88, 1.08), w = w0 * k, h = h0 * (0.94 + 0.12 * k), c = i % 2 ? l[0] : bark;
+    b.box(sl + 0.02, h, w * 0.74, c, x, 0, 0).box(sl + 0.01, h * 0.74, w, c, x, 0, 0);
+  }
+  b.box(len * rnd(0.5, 0.85), 0.03, w0 * 0.16, dark, rnd(-0.2, 0.2), h0 / 2 + 0.005, rnd(-w0 * 0.25, w0 * 0.25));                                          // bark strip
+  for (const e of [-1, 1]) b.box(0.07, h0 * 0.8, w0 * 0.62, l[2], e * (len / 2 + 0.01), 0, 0);                                                                // pale end rings
+  b.box(0.15, 0.06, 0.15, dark, rnd(-len * 0.35, len * 0.35), h0 / 2 + 0.01, rnd(-w0 * 0.2, w0 * 0.2));                                                      // knot
+  if (rand() < 0.45) { const sd = rand() < 0.5 ? -1 : 1; b.box(0.22, 0.14, 0.26, bark, rnd(-len * 0.3, len * 0.3), 0.04, sd * (w0 / 2 + 0.1)); }              // branch stub
+  if (id === 'winter') b.box(len * rnd(0.4, 0.8), 0.07, w0 * 0.5, 0xffffff, rnd(-0.2, 0.2), h0 / 2 + 0.03, 0);
+  else if (id === 'volcano') b.box(rnd(0.4, 0.9), 0.035, 0.05, rand() < 0.5 ? 0xff5a14 : 0xffb43a, rnd(-len * 0.4, len * 0.4), h0 / 2 + 0.012, rnd(-w0 * 0.25, w0 * 0.25));
+  else if (id === 'forest' || id === 'temple') b.box(rnd(0.3, 0.7), 0.05, w0 * rnd(0.3, 0.6), 0x4f8f3f, rnd(-len * 0.4, len * 0.4), h0 / 2 + 0.02, rnd(-0.1, 0.1));
+  else if (id === 'city') b.box(0.1, h0 * 1.02, w0 * 1.02, 0xffe14a, rnd(-len * 0.35, len * 0.35), 0, 0);
+  return b.build();
 }
 function buildTrain(len, dir, col) {
   return new Builder().box(len, 1.0, 0.9, col, 0, 0.8, 0).box(len * 0.98, 0.1, 1, 0x2b2f36, 0, 1.35, 0).box(len * 0.9, 0.3, 0.92, 0xdff3fb, 0, 1.0, 0)
@@ -94,6 +159,7 @@ function buildTrain(len, dir, col) {
     .box(0.1, 0.2, 0.2, 0xfff1a6, dir * len / 2, 0.7, 0.25).box(0.1, 0.2, 0.2, 0xfff1a6, dir * len / 2, 0.7, -0.25).build();
 }
 /* creature skins for traffic lanes. Head points the way it travels (dir); small fits the car slot (1.5 long), big the truck slot (2.6). */
+W.beastGeo = style => geo('beast' + style, () => buildBeast(style, 1));
 function buildBeast(style, dir) {
   const b = new Builder(), X = (lu, h, wz, col, x, y, z) => b.box(lu, h, wz, col, dir * x, y, z), Z = [-1, 1];
   if (style === 'wolf') {
@@ -152,6 +218,9 @@ const TYPES = [['grass', 0.2, 1, 2, 0], ['road', 0.24, 1, 3, 0], ['water', 0.18,
 const flip = () => rand() < 0.5 ? -1 : 1;
 const lanes = (type, n, f) => { const o = []; for (let i = 0; i < n; i++) o.push(Object.assign({ type: type }, f ? f(i) : null)); return o; };
 const calm = () => ({ type: 'grass', tp: rnd(0.04, 0.12) });
+const isWildTheme = th => !!(AH.BEASTS && AH.BEASTS[th.id]);
+/* wildlands: a vast stretch of open ground where creatures roam (see wild.js). Replaces the creature roads of the beast zones. */
+const WILD = { id: 'wildlands', min: 0, types: ['grass'], w: 3, build() { const tp = rnd(0.06, 0.12); return [].concat(lanes('grass', ri(6, 10), () => ({ wild: true, tp: tp })), [calm()]); } };
 const CHUNKS = [
   { id: 'river', min: 6, types: ['lily', 'water'], w: 1.2, build() {
     const d = flip(), sp = rnd(0.9, 1.15), a = ri(1, 2), c = ri(2, 3);
@@ -166,7 +235,7 @@ const CHUNKS = [
     const d = flip(), n = ri(3, 4), sp = rnd(0.9, 1.3);
     return [].concat(lanes('conv', n, i => ({ dir: i % 2 ? -d : d, spd: sp * rnd(0.85, 1.2) })), [calm()]); } },
   { id: 'maze', min: 0, types: ['grass'], w: 1.1, build() {
-    const n = ri(4, 6), tp = rnd(0.4, 0.58); let st = flip();
+    const n = ri(4, 6), tp = rnd(0.2, 0.3); let st = flip();
     return [].concat(lanes('grass', n, () => { if (rand() < 0.35) st = -st; return { tp: tp, rock: rnd(0.2, 0.6), step: rand() < 0.2 ? 0 : st }; }), [calm()]); } },
   { id: 'alley', min: 4, types: ['roll', 'grass'], w: 1, build() {
     const d = flip(), n = ri(3, 4), sp = rnd(0.9, 1.2);
@@ -182,45 +251,102 @@ const CHUNKS = [
     const d = flip(); return [].concat(lanes('roll', 1, () => ({ dir: d, spd: rnd(1.1, 1.4) })), lanes('road', 2, i => ({ dir: i ? d : -d, spd: rnd(1, 1.35), truck: 0.4 })), lanes('roll', 1, () => ({ dir: -d, spd: rnd(1.1, 1.4) })), [calm()]); } }
 ];
 function tryChunk(r) {
-  if (rand() > 0.6) return false;
+  if (rand() > 0.68) return false;
   const mix = AH.themeAt(r).mix, pool = [];
-  CHUNKS.forEach(c => { if (c.id === W.lastChunk || r < c.min) return; const k = c.types.reduce((a, t) => a + (mix[t] === undefined ? 1 : mix[t]), 0) / c.types.length; pool.push([c, c.w * k]); });
+  const th0 = AH.themeAt(r), wildT = isWildTheme(th0);
+  CHUNKS.concat(wildT ? [WILD] : []).forEach(c => { if (c.id === W.lastChunk || r < c.min || (wildT && c.types.indexOf('road') >= 0)) return; const k = c.types.reduce((a, t) => a + (mix[t] === undefined ? 1 : mix[t]), 0) / c.types.length; pool.push([c, c.w * k]); });
   const tot = pool.reduce((a, e) => a + e[1], 0); if (!tot) return false;
   let x = rand() * tot, ch = pool[pool.length - 1][0];
   for (const e of pool) { x -= e[1]; if (x <= 0) { ch = e[0]; break; } }
-  const specs = ch.build(), room = (Math.floor(r / AH.ARENA_EVERY) + 1) * AH.ARENA_EVERY - 3;
+  const specs = ch.build(), room = AH.nextArena(r) - 3;
   if (r + specs.length > room) return false;                         // must end before the calm lanes ahead of the next arena
   W.queue = specs; W.lastChunk = ch.id;
   return true;
 }
+const CHUNK_ONLY = { roll: 1, rail: 1, conv: 1 };          // these only ever appear inside authored structures; scattered randomly they look odd
 function pickType(r) {
   const A = W.arenaStart(r);
   W.spec = null;
   if (A >= 0) { W.queue = []; W.runLeft = 0; return (r - A === AH.ARENA_LEN - 1) ? 'gate' : 'arena'; }
-  if (r <= 2 || r % AH.ARENA_EVERY >= AH.ARENA_EVERY - 2 || r % AH.ARENA_EVERY === AH.ARENA_LEN) return 'grass';
+  if (r <= 2 || AH.nextArena(r) - r <= 2 || (r > AH.ARENA_EVERY && (r - AH.ARENA_EVERY) % AH.PERIOD === AH.ARENA_LEN)) return 'grass';
   if (W.queue.length || (W.runLeft <= 0 && tryChunk(r))) { W.spec = W.queue.shift(); W.run = W.spec.type; W.runLeft = 0; return W.spec.type; }
   if (W.runLeft <= 0) {
     const mix = AH.themeAt(r).mix;
-    const avail = TYPES.filter(e => r >= e[4]).map(e => [e[0], e[1] * (mix[e[0]] || 1), e[2], e[3]]);
+    const avail = TYPES.filter(e => r >= e[4] && !CHUNK_ONLY[e[0]]).map(e => [e[0], e[1] * (mix[e[0]] || 1), e[2], e[3]]);
     const tot = avail.reduce((s, e) => s + e[1], 0);
     let e;
     do { let x = rand() * tot, acc = 0; for (let i = 0; i < avail.length; i++) { acc += avail[i][1]; if (x < acc || i === avail.length - 1) { e = avail[i]; break; } } } while (e[0] === W.run);
+    if (e[0] === 'road' && isWildTheme(AH.themeAt(r))) {            // creatures never ride along roads: those lanes become a wildland instead
+      const sp = WILD.build();
+      if (r + sp.length <= AH.nextArena(r) - 3) { W.queue = sp; W.lastChunk = 'wildlands'; W.spec = W.queue.shift(); W.run = 'grass'; W.runLeft = 0; return 'grass'; }
+      e = avail.find(q => q[0] === 'grass') || e; if (e[0] === 'road') e = ['grass', 1, 1, 2];
+    }
     W.run = e[0]; W.runLeft = ri(e[2], e[3]);
   }
   W.runLeft--;
   return W.run;
 }
 
+/* ---- background: everything beyond the playable lanes is decoration, with a few blocks of height difference up and down ---- */
+const hash3 = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 1597334677) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const HILL = [-0.5, 0, 0, 0.5, 1, 1, 1.5, 2];
+const BG0 = COLS + 2.6, SEG = 4.2, NSEG = 3;
+function sideH(r, side, seg, type) {
+  let h = HILL[Math.floor(hash3(r >> 1, side * 9 + seg, 17) * HILL.length)];
+  if (type === 'arena') h = Math.max(h, 1);
+  if (type === 'gate') h = 2.5 + Math.round(hash3(r, side * 9 + seg, 5) * 3) / 2;
+  return h;
+}
+/* ground with terrain on both sides. grass-like rows get hills and dips; other lane types get raised blocks only (their lane runs on to the edge) */
+function groundBase(b, th, r, type, col, hillCol, hillsOnly) {
+  const full = type === 'grass' || type === 'arena' || type === 'gate';
+  if (hillsOnly) col = th.ground[r & 1];
+  else if (full) b.box(BG0 * 2, 0.5, 1, col, 0, -0.25, 0);
+  for (const side of [-1, 1]) {
+    let last = 0;
+    for (let i = 0; i < NSEG; i++) {
+      const h = sideH(r, side, i, type), x = side * (BG0 + SEG * (i + 0.5)); last = h;
+      const c = mixHex(hillCol || col, th.rock[2], Math.min(0.5, Math.abs(h) * 0.22));
+      if (full) b.box(SEG, h + 1, 1, c, x, (h - 1) / 2, 0);
+      else if (h > 0) b.box(SEG, h, 1, c, x, h / 2, 0);
+    }
+    if (full) b.box(40 - (BG0 + SEG * NSEG), last + 1, 1, mixHex(hillCol || col, th.rock[2], 0.2), side * ((40 + BG0 + SEG * NSEG) / 2), (last - 1) / 2, 0);
+  }
+}
+/* scenery props in the unreachable background. A cheap few boxes each, varied in height, themed per environment. */
+function bgProp(b, th, x, y, z, big) {
+  const t = th.tree, id = th.id, h = rnd(1.6, 4.8) * (big ? 1.4 : 1), w = rnd(0.9, 1.7);
+  if (id === 'winter') { b.box(0.34, h * 0.35, 0.34, t.trunk, x, y + h * 0.17, z); [[1, 0.3], [0.75, 0.55], [0.5, 0.78]].forEach((q, i) => b.box(w * q[0] * 1.5, h * 0.26, w * q[0] * 1.5, i % 2 ? t.b[0] : t.a[0], x, y + h * q[1] + 0.3, z).box(w * q[0] * 1.2, 0.1, w * q[0] * 1.2, t.cap, x, y + h * q[1] + 0.3 + h * 0.13, z)); }
+  else if (id === 'desert') { if (rand() < 0.5) b.box(0.5, h, 0.5, t.a[0], x, y + h / 2, z).box(0.5, 0.3, 0.3, t.a[0], x + 0.4, y + h * 0.5, z).box(0.3, h * 0.4, 0.3, t.a[0], x + 0.6, y + h * 0.65, z); else b.box(w * 1.6, h * 0.5, w * 1.3, th.rock[0], x, y + h * 0.25, z).box(w, h * 0.35, w * 0.8, th.rock[1], x + 0.1, y + h * 0.6, z); }
+  else if (id === 'volcano') { b.box(w, h, w, 0x2b2630, x, y + h / 2, z).box(w * 0.55, h * 0.6, w * 0.55, 0x1f1a23, x, y + h * 1.25, z).box(0.14, h * 0.8, w * 1.02, 0xff5a14, x, y + h * 0.5, z); }
+  else if (id === 'city') { const bw = rnd(1.3, 2.3), bh = h * 1.7; b.box(bw, bh, bw, pick([0x4a5568, 0x5b6b8a, 0x3b4454, 0x6b7280]), x, y + bh / 2, z); for (let k = 1; k < bh / 1.5; k++) b.box(bw + 0.04, 0.14, bw + 0.04, pick([0xffe14a, 0x38e1ff, 0xff2fd0, 0x2a3140]), x, y + k * 1.5, z); b.box(bw * 0.5, 0.35, bw * 0.5, 0x2a3140, x, y + bh + 0.17, z); }
+  else if (id === 'temple') { if (rand() < 0.5) b.box(0.8, h * 0.8, 0.8, 0xb5ae8a, x, y + h * 0.4, z).box(1.1, 0.25, 1.1, 0x9a9170, x, y + h * 0.82, z).box(0.14, h * 0.7, 0.84, 0x4f8f3f, x + 0.3, y + h * 0.35, z); else b.box(w * 2, 0.5, w * 2, 0x9a9170, x, y + 0.25, z).box(w * 1.5, 0.5, w * 1.5, 0xb5ae8a, x, y + 0.75, z).box(w, 0.5, w, 0xc4bd96, x, y + 1.25, z); }
+  else { b.box(0.4, h * 0.45, 0.4, t.trunk, x, y + h * 0.22, z).box(w * 1.9, h * 0.34, w * 1.9, t.a[0], x, y + h * 0.55, z).box(w * 1.3, h * 0.3, w * 1.3, t.b[0], x, y + h * 0.82, z).box(w * 0.7, h * 0.2, w * 0.7, t.c, x, y + h * 1.0, z); }
+}
+function bgDecor(b, th, r, type) {
+  if (type === 'water' || type === 'lily') return;
+  for (const side of [-1, 1]) for (let i = 0, n = rand() < (type === 'arena' || type === 'gate' ? 0.8 : 0.55) ? 1 : 0; i < n; i++) {
+    const off = rnd(0, SEG * NSEG - 1), seg = Math.min(NSEG - 1, Math.floor(off / SEG)), h = sideH(r, side, seg, type);
+    if (type !== 'grass' && type !== 'arena' && type !== 'gate' && h <= 0) { bgProp(b, th, side * (BG0 + off), 0, rnd(-0.3, 0.3), rand() < 0.25); continue; }
+    bgProp(b, th, side * (BG0 + off), Math.max(0, h), rnd(-0.3, 0.3), rand() < 0.25);
+  }
+}
+
 /* ---- row construction ---- */
-function addObstacle(row, x, rock, solid, th) {
-  const g = new T.Group();
-  if (rock) {
+function addObstacle(row, x, mode, solid, th) {
+  const g = new T.Group(), rock = mode !== 'tree';
+  if (mode === 'low') {
+    const m = new T.Mesh(lowGeo(th, rand() < 0.5 ? 0 : 1), VM); m.castShadow = true; g.add(m);
+    const s = rnd(0.95, 1.25); g.scale.set(s * rnd(0.9, 1.1), s * rnd(1, 1.6), s * rnd(0.9, 1.1));
+  } else if (rock) {
     const m = new T.Mesh(rockGeo(th, rand() < 0.5 ? 0 : 1), VM); m.castShadow = true; g.add(m);
+    const s = rnd(0.9, 1.25); g.scale.set(s, s * rnd(1, 1.7), s);
   } else {
     const parts = treeParts(th, rand() < 0.5 ? 0 : 1);
     const trunk = new T.Mesh(parts.trunk, VM); trunk.castShadow = true; g.add(trunk);
     if (parts.crown) { const can = new T.Mesh(parts.crown, VM); can.castShadow = true; g.add(can); row.canopies.push({ mesh: can, x: x }); }
-    const s = rnd(0.9, 1.2); g.scale.set(s, s * rnd(0.95, 1.15), s);
+    const s = rnd(0.9, 1.25), tall = rand() < 0.3 ? rnd(1.35, 1.95) : rnd(1.0, 1.4);   // never stunted, sometimes towering
+    g.scale.set(s, s * tall, s);
   }
   g.position.x = x; g.rotation.y = ri(0, 3) * 1.5708;
   row.group.add(g);
@@ -284,7 +410,7 @@ const ARENA_FLOOR = {
 
 /* the exit barrier: one big themed obstacle across the whole gate row. It does not move until the guardian falls, then a hop into it smashes it. */
 const barrierGeo = th => geo('barrier' + th.id, () => {
-  const b = new Builder(), W2 = COLS * 2 + 1.4, A = th.arena, id = th.id;
+  const b = new Builder(), W2 = (COLS + 2.6) * 2, A = th.arena, id = th.id;
   const jag = (n, f) => { for (let i = 0; i < n; i++) f(-W2 / 2 + (i + 0.5) * W2 / n, i); };
   if (id === 'forest') {                                                // a pile of giant fallen trees
     [[0.5, 0.0], [0.5, 0.0], [1.5, 0.35], [2.4, -0.15]].forEach((q, i) => {
@@ -316,8 +442,12 @@ const barrierGeo = th => geo('barrier' + th.id, () => {
 
 /* arena dressing: a ring of runes on the floor, debris, and posts with banners at the entrance and exit gates. No walls: the invisible wall bounds it. */
 function arenaDecor(b, th, r, k, gate) {
-  const A = th.arena, SIDES = [-1, 1], FL = ARENA_FLOOR[th.id], alt = (k + r) % 2;
-  b.box(80, 0.5, 1, FL ? FL[alt] : (alt ? A.a : A.b), 0, -0.25, 0);
+  const A = th.arena, SIDES = [-1, 1], FL = ARENA_FLOOR[th.id], alt = (k + r) % 2, slab = b;
+  groundBase(b, th, r, gate ? 'gate' : 'arena', FL ? FL[alt] : (alt ? A.a : A.b), A.pillar[1]);
+  /* every low floor decal (runes, tiles, cracks, drifts...) is lifted by its own tiny step, so two of them never share a top plane and flicker (z-fighting) */
+  let lv = 0;
+  const fb = { box(w, h, d, c, x, y, z) { const bump = h <= 0.2 ? (++lv % 17) * 0.004 : 0; slab.box(w, h + bump, d, c, x, y + bump / 2, z); return fb; } };
+  b = fb;
   if (FL) FL[2](b, th, r, k, alt);
   [5.4, 2.7].forEach(R => { const dz = k - 7; if (Math.abs(dz) <= R) { const x = Math.sqrt(R * R - dz * dz), w = Math.abs(dz) > R - 0.6 ? 1.3 : 0.5; for (const s of x < 0.3 ? [1] : SIDES) b.box(w, 0.03, 0.62, A.accent, s * x, 0.015, 0); } });
   if (k === 7) b.box(1.2, 0.04, 1.2, A.accent, 0, 0.02, 0).box(0.5, 0.06, 0.5, A.flame[1], 0, 0.04, 0);
@@ -343,16 +473,14 @@ function makeRow(r) {
   const place = (i, n, off, jit) => -WRAP + (((off + i * PER / n + rnd(-jit, jit)) % PER) + PER) % PER;
 
   if (type === 'grass') {
-    b.box(80, 0.5, 1, th.ground[r & 1], 0, -0.25, 0);
+    groundBase(b, th, r, 'grass', th.ground[r & 1]);
     groundDetails(b, th);
   } else if (type === 'road') {
     b.box(80, 0.5, 1, th.road, 0, -0.25, 0);
     const before = W.rows.get(r - 1);
     if (before && before.type === 'road') for (let x = -40; x < 40; x += 2.4) b.box(1.2, 0.02, 0.14, th.marking, x, 0.01, 0.5);
   } else if (type === 'water' || type === 'lily') {
-    const rip = mixHex(th.water, 0xffffff, 0.35);
     b.box(80, 0.4, 1, th.water, 0, -0.5, 0);
-    for (let i = ri(8, 14); i > 0; i--) b.box(rnd(0.5, 1.4), 0.02, 0.07, th.id === 'volcano' ? 0xffb43a : rip, rnd(-14, 14), -0.29, rnd(-0.4, 0.4));
   } else if (type === 'rail') {
     b.box(80, 0.4, 1, th.bed, 0, -0.2, 0);
     for (let x = -40; x < 40; x += 0.8) b.box(0.22, 0.08, 0.9, th.tie, x, 0.04, 0);
@@ -366,6 +494,8 @@ function makeRow(r) {
   } else if (type === 'arena' || type === 'gate') {
     arenaDecor(b, th, r, r - W.arenaStart(r), type === 'gate');
   }
+  if (type !== 'grass' && type !== 'arena' && type !== 'gate' && type !== 'water' && type !== 'lily') groundBase(b, th, r, type, 0, null, true);
+  bgDecor(b, th, r, type);
   const mesh = new T.Mesh(b.build(), VM);
   mesh.castShadow = false; mesh.receiveShadow = true;
   row.group.add(mesh);
@@ -373,9 +503,10 @@ function makeRow(r) {
 
   if (type === 'grass') {
     for (let x = -COLS; x <= COLS; x++) {
-      if (x === prev || x === pc) continue;
-      const hit = rand() < (r <= 2 ? 0 : S.tp !== undefined ? S.tp : 0.085), rock = rand() < (S.rock !== undefined ? S.rock : 0.25);
-      if (hit && !W.removed.has(r + ':' + x)) addObstacle(row, x, rock, true, th);
+      if (x === prev || Math.abs(x - pc) <= 1) continue;               // a three-wide corridor always stays open
+      const hit = rand() < (r <= 2 ? 0 : S.tp !== undefined ? S.tp : 0.11), u = rand(), rp = S.rock !== undefined ? S.rock : 0.2;
+      const mode = u < rp ? 'rock' : rand() < 0.4 ? 'low' : 'tree';
+      if (hit && !W.removed.has(r + ':' + x)) addObstacle(row, x, mode, true, th);
     }
   } else if (type === 'road') {
     const dir = S.dir || flip(), sp = rnd(2.2, 4.2) * (S.spd || 1) * (1 + 0.5 * d), n = S.n || ri(4, 7), off = rnd(0, PER), tr = S.truck !== undefined ? S.truck : 0.3;
@@ -397,11 +528,12 @@ function makeRow(r) {
       const len = rnd(2, 3.4), m = new T.Mesh(buildLog(len, th), VM); m.castShadow = true;
       addObj(m, { x0: place(i, n, off, 0.6), x: 0, len: len, dir: dir, speed: sp, kind: 'log', hurts: false, carries: true });
     }
+    addFlow(row, th, dir, sp);
   } else if (type === 'lily') {
-    row.pads = new Map();
+    row.pads = new Map(); addFlow(row, th, flip(), 0.3);
     for (let x = -COLS; x <= COLS; x++) {
       if (rand() < (S.pad !== undefined ? S.pad : 0.38) || x === prev || x === pc) {
-        const m = new T.Mesh(padGeo(th), VM); m.position.set(x, AH.PADY - 0.04, 0); m.rotation.y = rand() * 3; m.receiveShadow = true;
+        const m = new T.Mesh(padGeo(th), VM); const ps = rnd(0.78, 1.18); m.scale.set(ps, 1, ps * rnd(0.9, 1.1)); m.position.set(x + rnd(-0.08, 0.08), AH.PADY - 0.04, rnd(-0.08, 0.08)); m.rotation.y = rand() * 3; m.receiveShadow = true;
         row.group.add(m); row.pads.set(x, m);
       }
     }
@@ -422,19 +554,25 @@ function makeRow(r) {
     row.train = { mesh: m, dir: dir, len: len, T: tm, warn: 1.3, speed: 30, off: rnd(0, tm), alive: !W.killed.has(r + ':-1'), row: r, idx: -1, kind: 'train' };
   } else if (type === 'gate') {
     if (!W.arena(W.arenaStart(r)).broken) {
-      const m = new T.Mesh(barrierGeo(th), VM); m.castShadow = true; row.group.add(m);
+      const m = new T.Group(), main = new T.Mesh(barrierGeo(th), VM); main.castShadow = true; m.add(main);
+      const top = new Builder(), ar = th.arena, topY = { forest: 3.4, winter: 3.4, desert: 3.5, volcano: 3.0, city: 3.8, temple: 3.4 }[th.id] || 3.4;
+      for (let x = -COLS - 2.5; x <= COLS + 2.6; x += 1) { const h = rnd(0.2, 1.9); top.box(1.02, h, 1.0, mixHex(ar.pillar[rand() < 0.5 ? 0 : 1], th.rock[2], rnd(0, 0.5)), x, topY - 0.2 + h / 2, rnd(-0.08, 0.08)); }
+      const tm = new T.Mesh(top.build(), VM); tm.castShadow = true; m.add(tm);
+      row.group.add(m);
       row.barrier = { mesh: m, th: th };
       for (let x = -COLS; x <= COLS; x++) row.blockers.set(x, { kind: 'barrier', node: null });
     }
   }
   scene.add(row.group);
+  if (S.wild && AH.wild) AH.wild.populate(row, th);
   return row;
 }
-function removeRow(row) { scene.remove(row.group); }
+function removeRow(row) { scene.remove(row.group); if (AH.wild) AH.wild.drop(row.r); }
 
 /* ---- public api ---- */
 W.reset = function (seed) {
   W.rows.forEach(removeRow); W.rows.clear();
+  if (AH.wild) AH.wild.clear();
   W.gen = -9; W.run = 'grass'; W.runLeft = 0; W.queue = []; W.spec = null; W.lastChunk = ''; W.pathCol = 0; W.arenas = {}; W.killed = new Set(); W.removed = new Set();
   AH.setSeed(seed);
 };
@@ -489,6 +627,7 @@ W.killObj = function (r, i, silent) {
   return true;
 };
 W.removeBlocker = function (r, c, silent) {
+  { const rw = W.rows.get(r), q = rw && rw.blockers.get(c); if (q && (q.kind === 'fence' || q.kind === 'barrier')) return false; }      // gates and the exit barrier can never be dug through
   W.removed.add(r + ':' + c);
   const row = W.rows.get(r); if (!row) return false;
   const bl = row.blockers.get(c);
@@ -561,6 +700,13 @@ W.update = function (dt, fx, fz) {
       if (s.x !== null) { tr.mesh.position.x = s.x; tr.x = s.x; }
       const on = s.warn && Math.floor(t * 6) % 2 === 0;
       row.lamp.material = AH.M(on ? 0xff3b3b : 0x552222);
+    }
+    if (row.flow) {
+      row.flow.m.position.x = (row.flow.off + row.flow.v * t) % FLOWP;
+      if (Math.abs(-row.r - fz) < 9 && Math.random() < dt * 0.35) {          // a small splash somewhere on the water
+        const lava = row.theme === 'volcano', sx = (Math.random() - 0.5) * 20;
+        AH.burst(lava ? 3 : 2, sx, lava ? 0.1 : -0.2, -row.r + (Math.random() - 0.5) * 0.6, lava ? [0xff6a1a, 0xffd23f] : [0xffffff, 0xcfeaff], lava ? 1.0 : 0.7, lava ? 3.2 : 2.4);
+      }
     }
     // canopies fade when the player stands under or right behind them
     if (row.canopies.length && Math.abs(-row.r - fz) < 3.2) {
