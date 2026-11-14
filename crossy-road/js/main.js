@@ -13,7 +13,7 @@ function chaseDist(e) {
 }
 const slabMat = new T.MeshLambertMaterial({ color: 0xf2f9ff });
 const slab = new T.Mesh(AH.BOX, slabMat);
-slab.scale.set(120, 1.2, 46); scene.add(slab);
+slab.scale.set(COLS * 2 + 3, 1.2, 46); scene.add(slab);   // as wide as the course: the sides are terrain now, not more lane
 const boulders = [], bGeo = new T.IcosahedronGeometry(1, 0);
 function addBoulder(x, z0, r) {
   const m = new T.Mesh(bGeo, new T.MeshLambertMaterial({ color: 0xffffff }));
@@ -40,8 +40,8 @@ AH.chaseNow = function () {
   const hold = -(W.firstOpenArena() - 8);
   return cz < hold ? hold : cz;
 };
-for (let i = 0; i < 24; i++) addBoulder(-24 + i * 2 + AH.prnd(-0.4, 0.4), AH.prnd(0, 1.2), AH.prnd(0.75, 1.3));
-for (let i = 0; i < 22; i++) addBoulder(AH.prnd(-24, 24), AH.prnd(1.4, 6), AH.prnd(1, 1.9));
+for (let i = 0; i < 9; i++) addBoulder(-COLS - 1 + i * 2 + AH.prnd(-0.4, 0.4), AH.prnd(0, 1.2), AH.prnd(0.75, 1.3));
+for (let i = 0; i < 8; i++) addBoulder(AH.prnd(-COLS - 0.5, COLS + 0.5), AH.prnd(1.4, 6), AH.prnd(1, 1.9));
 
 /* ---- big on-screen shout (boss roars) ---- */
 let shoutT = 0;
@@ -55,8 +55,12 @@ let toastT = 0;
 AH.toast = function (msg, ms) { const h = $('hint'); h.textContent = msg; h.hidden = false; toastT = (ms || 1800) / 1000; };
 
 /* ---- rounds ---- */
-AH.adoptRound = function (rd, rs) { G.round = rd; AH.resetWorld(); G.rs = rs; G.joinWait = performance.now(); };
-AH.adoptStart = function (rs) { const was = G.rs; G.rs = rs; if (!was) G.joinWait = performance.now(); };
+/* A round only counts as already running for a newcomer once the host has been hopping for a while. When a new round (or the host's first hop) reaches
+ * a phone within a few seconds of the start, that player is simply still on the start line like everyone else: no late-join placement, or they
+ * would be teleported ahead of the wave next to the host. */
+const FRESH = 4;
+AH.adoptRound = function (rd, rs) { G.round = rd; AH.resetWorld(); G.rs = rs; G.joinWait = performance.now(); if (rs > 0 && AH.now() - rs < FRESH) G.spawned = true; };
+AH.adoptStart = function (rs) { const was = G.rs; G.rs = rs; if (!was) { G.joinWait = performance.now(); if (rs > 0 && AH.now() - rs < FRESH && G.state === 'ready') G.spawned = true; } };
 AH.everyoneDead = function () {
   if (!P.dead) return false;
   for (const g of AH.ghosts.values()) if (!g.dead && !g.first) return false;
@@ -231,7 +235,7 @@ function frame(now) {
     let dr = g.tr - g.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); g.g.rotation.y += dr * k;
     g.inner.scale.set(1, g.sy, 1);
     g.g.visible = !g.dead && !g.first; g.tag.rotation.y += dt * 2.4;
-    if (g.flames) AH.fx.tickFlames(g.flames, AH.now());
+    if (g.flames) AH.fx.tickAura(g.flames, AH.now());
     if (g.rig) g.rig.tick(g.fly && !g.dead, AH.now(), dt);
     if (now - g.seen > 5000) NET.removeGhost(id);
   });
@@ -262,14 +266,14 @@ function frame(now) {
   const A = W.firstOpenArena();
   if (!P.dead && P.row >= A && G.lastArena !== A) { G.lastArena = A; AH.emit('arena', A); }
 
-  slab.position.set(P.x, 0.1, G.chaseZ + 0.5 + 23);
+  slab.position.set(0, 0.1, G.chaseZ + 0.5 + 23);
   for (const b of boulders) {
     b.ph += dt * 6 * b.roll;
-    b.m.position.set(P.x * 0 + b.x + Math.round(P.x / 48) * 48, b.r * 0.78 + Math.abs(Math.sin(b.ph)) * 0.12, G.chaseZ + b.z0);
+    b.m.position.set(b.x, b.r * 0.78 + Math.abs(Math.sin(b.ph)) * 0.12, G.chaseZ + b.z0);
     b.m.rotation.x -= dt * 2.6 / b.r * b.roll;
   }
   snowT -= dt;
-  if (snowT <= 0 && !allDead && AH.chase) { snowT = 0.08; AH.burst(1, P.x + AH.prnd(-12, 12), 1.2, G.chaseZ - 0.4, AH.chase.dust, 1.4, 3); }
+  if (snowT <= 0 && !allDead && AH.chase) { snowT = 0.08; AH.burst(1, AH.prnd(-COLS, COLS), 1.2, G.chaseZ - 0.4, AH.chase.dust, 1.4, 3); }
   AH.updateParts(dt);
 
   // danger feedback

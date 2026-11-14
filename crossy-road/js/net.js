@@ -63,8 +63,8 @@ function onState(d, a) {
   const was = g.dead, fl = d[10] | 0;
   g.tx = d[0]; g.ty = d[1]; g.tz = d[2]; g.tr = d[3]; g.score = d[4] | 0; g.dead = !!d[5]; g.sy = d[6] || 1; g.fire = !!(fl & 1); g.fly = !!(fl & 4);
   if (d[11] > 0) g.joinT = +d[11];
-  if (!!(fl & 1) !== !!g.fireOn) { g.fireOn = !!(fl & 1); g.mesh.geometry = g.fireOn ? AH.charFireGeo(ch) : AH.charGeo(ch); g.mesh.material = g.fireOn ? AH.FIREMAT : AH.VM; }
-  if ((fl & 1) && !g.flames) { g.flames = AH.fx.makeFlames(); g.g.add(g.flames); }
+  if (!!(fl & 1) !== !!g.fireOn) { g.fireOn = !!(fl & 1); g.mesh.geometry = g.fireOn ? AH.charFireGeo(ch) : AH.charGeo(ch); g.mesh.material = AH.VM; }
+  if ((fl & 1) && !g.flames) { g.flames = AH.fx.makeAura(); g.g.add(g.flames); }
   else if (!(fl & 1) && g.flames) { g.g.remove(g.flames); g.flames = null; }
   g.seen = performance.now();
   if (g.first) { g.first = false; g.g.position.set(g.tx, g.ty, g.tz); g.g.rotation.y = g.tr; }

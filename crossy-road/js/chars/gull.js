@@ -1,30 +1,15 @@
-/* Seagull: a normal ground character until it has hopped 5 times. Then the button lifts it into 3 seconds of flight (over cars, trains,
- * water and trees), and while it is in the air the same button drops poop bombs. Flying changes only what can touch you: it scores, counts for
- * checkpoints and bosses, and the boss and the wave can still get it. When the time is up it lands where it is (with a short grace period to
- * reach solid ground if it is over traffic or water), on whatever is there. */
+/* Seagull: a normal ground character until it has hopped 5 times. Then the button lifts it into 1 second of flight (over cars, trains,
+ * water and trees), and while it is in the air it rains poop bombs. Flying changes only what can touch you: it scores, counts for
+ * checkpoints and bosses, and the boss and the wave can still get it. When the second is up it simply drops straight down from where it is
+ * (no gliding to safety, no nudging to a free tile) onto whatever is there. The charge starts again from zero on landing: 5 fresh hops. */
 (function () {
 'use strict';
 const AH = window.AH, T = AH.T, W = AH.world, INK = 0x10324a, COLS = AH.COLS;
-const NEED = 5, FLY_T = 3, POOP_EVERY = 0.6;
-
-/* a standing spot near the bird that is neither inside a tree nor on top of another player, preferring one that will hold it up */
-function freeSpot(p) {
-  const row = W.get(p.row), now = AH.now();
-  if (!row) return p.x;
-  let best = null;
-  for (const o of [0, 1, -1, 2, -2, 3, -3]) {
-    const x = Math.round(p.x) + o;
-    if (Math.abs(x) > COLS || row.blockers.has(x) || AH.player.occupied(x, p.row)) continue;
-    const ok = W.stand(row, x, now).ok;
-    if (!best || (ok && !best.ok)) best = { x: x, ok: ok };
-    if (ok) break;
-  }
-  return best ? best.x : null;
-}
+const NEED = 5, FLY_T = 1, POOP_EVERY = 0.22, GRAV = 34;
 
 AH.chars.push({
   id: 'gull', name: 'Seagull', col: 0xdfe6ee, label: 'FLY',
-  blurb: 'Hop 5 times, then FLY: 3 seconds in the air, over traffic, water and trees, automatically dropping bombs that wreck hazards and hurt bosses.',
+  blurb: 'Hop 5 times, then FLY: 1 second in the air, over traffic, water and trees, rapidly dropping bombs that wreck hazards and hurt bosses. Then it drops right where it is, and the charge starts over.',
   geo(B) {
     const w = 0xffffff, b = new B();
     b.box(0.5, 0.4, 0.8, w, 0, 0.6, 0).box(0.34, 0.2, 0.5, 0xe8eef5, 0, 0.45, 0.02)
@@ -59,18 +44,18 @@ AH.chars.push({
       }
     };
   },
-  init(p) { p.cs = { steps: 0, t: 0, cd: 0, extra: 0 }; p.inv = false; p.burn = false; p.glow = false; p.fly = false; p.lift = 0; },
+  init(p) { p.cs = { steps: 0, t: 0, cd: 0, vy: 0, drop: false }; p.inv = false; p.burn = false; p.glow = false; p.fly = false; p.lift = 0; },
   ui(p) {
     const c = p.cs;
-    if (p.fly) return { label: 'FLY', pct: Math.max(0, c.t) / FLY_T * 100, ready: false, text: c.t > 0 ? Math.ceil(c.t) + 's' : 'LAND' };
+    if (p.fly) return { label: 'FLY', pct: Math.max(0, c.t) / FLY_T * 100, ready: false, text: c.t > 0 ? Math.ceil(c.t) + 's' : '...' };
     return { label: 'FLY', pct: c.steps / NEED * 100, ready: c.steps >= NEED, text: c.steps >= NEED ? 'FLY!' : c.steps + '/' + NEED };
   },
-  onStep(p) { p.cs.steps = Math.min(NEED, p.cs.steps + 1); },
+  onStep(p) { if (!p.fly) p.cs.steps = Math.min(NEED, p.cs.steps + 1); },   // hops made in the air do not charge the next flight
   press(p) {
     const c = p.cs;
     if (p.fly) return;                        // bombs drop by themselves while airborne
     if (c.steps < NEED) { AH.beep(130, 0.06, 'square', 0.03); return; }
-    c.steps = 0; c.t = FLY_T; c.cd = 0.3; c.extra = 1.5; p.fly = true; p.log = null;
+    c.steps = 0; c.t = FLY_T; c.cd = 0.12; c.vy = 0; c.drop = false; p.fly = true; p.log = null;
     AH.burst(10, p.x, 0.8, p.z, [0xffffff, 0xe8eef5], 2.4, 3.2);
     AH.beep(520, 0.3, 'sine', 0.06, 500);
   },
@@ -78,20 +63,19 @@ AH.chars.push({
     const c = p.cs;
     if (p.dead) return;
     if (!p.fly) { p.lift += (0 - p.lift) * Math.min(1, dt * 9); return; }
-    c.cd -= dt;
-    if (c.t > 0 && c.cd <= 0) { AH.fx.poop(p.x, p.z, true, p.y + p.lift); c.cd = POOP_EVERY; }
-    if (c.t > 0) { c.t -= dt; p.lift += (AH.FLYY - p.lift) * Math.min(1, dt * 5); return; }
-    // time is up. Over a road, rails or water it keeps gliding for up to 2.5 more seconds so you can hop to solid ground; then it lands
-    const rt = W.get(p.row);
-    if (rt && rt.type !== 'grass' && rt.type !== 'arena' && c.extra > 0) { c.extra -= dt; p.lift += (AH.FLYY - p.lift) * Math.min(1, dt * 5); return; }
-    p.lift += (0 - p.lift) * Math.min(1, dt * 6);
-    if (p.lift < 0.18 && !p.jumping) {
-      const x = freeSpot(p);
-      if (x === null) { c.t = 0.8; return; }          // nowhere to stand yet: keep gliding
-      p.fly = false; p.lift = 0; p.x = x; AH.pg.position.x = x;
-      AH.beep(300, 0.12, 'sine', 0.04, -120);
-      AH.player.settle();
+    if (!c.drop) {
+      c.cd -= dt;
+      if (c.cd <= 0) { AH.fx.poop(p.x, p.z, true, p.y + p.lift); c.cd = POOP_EVERY; }
+      c.t -= dt; p.lift += (AH.FLYY - p.lift) * Math.min(1, dt * 7);
+      if (c.t > 0) return;
+      c.drop = true; c.vy = 0;                      // time is up: no gliding, no safe spot, it just falls from where it is
     }
+    c.vy += GRAV * dt; p.lift -= c.vy * dt;
+    if (p.lift > 0) return;
+    p.lift = 0; c.drop = false; c.steps = 0; p.fly = false;     // touched down: the charge is spent and starts again from zero
+    AH.beep(300, 0.12, 'sine', 0.04, -120);
+    AH.burst(6, p.x, 0.1, p.z, [0xffffff, 0xe8eef5], 1.6, 2.2);
+    if (!p.jumping) AH.player.settle();             // on landing it is simply wherever it is: water, traffic, anything. (A hop in progress settles itself when it ends.)
   },
   guard() { return false; }
 });

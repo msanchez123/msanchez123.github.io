@@ -76,6 +76,26 @@ FX.tickFlames = function (group, t) {
   for (let i = 0; i < items.length; i++) { const it = items[i]; it.g.scale.set(it.s, (1 + 0.3 * Math.sin(t * 14 + it.ph)) * it.s, it.s); it.g.rotation.y = t * 3 + it.ph; }
 };
 
+/* The fox's fire aura: a few small translucent embers that rise and swell on a slow pulse around the body. Deliberately quiet. */
+const AM = [0xff7a1a, 0xffc04a].map(c => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.4, depthWrite: false }));
+FX.makeAura = function () {
+  const group = new T.Group(); group.userData.items = [];
+  for (let i = 0; i < 7; i++) {
+    const a = i / 7 * 6.283, m = new T.Mesh(AH.BOX, AM[i % 2]); m.scale.set(0.2, 0.26, 0.2);
+    group.add(m); group.userData.items.push({ m: m, a: a, ph: i * 1.7, r: 0.42 + (i % 3) * 0.1 });
+  }
+  return group;
+};
+FX.tickAura = function (group, t) {
+  const pulse = 0.5 + 0.5 * Math.sin(t * 4.2);
+  AM[0].opacity = 0.26 + 0.2 * pulse; AM[1].opacity = 0.2 + 0.2 * (1 - pulse);
+  group.userData.items.forEach(it => {
+    const k = (t * 0.9 + it.ph) % 1, s = (0.7 + 0.5 * Math.sin(t * 4.2 + it.ph)) * (1 - 0.5 * k);
+    it.m.position.set(Math.cos(it.a + t * 0.6) * it.r, 0.25 + k * 1.0, Math.sin(it.a + t * 0.6) * it.r);
+    it.m.scale.set(0.2 * s, 0.26 * s, 0.2 * s); it.m.rotation.y = t * 2 + it.ph;
+  });
+};
+
 /* Gull bomb: falls from the sky, then wrecks the lane it lands in. */
 FX.poop = function (x, z, mine, y) {
   y = y === undefined ? AH.FLYY : y;

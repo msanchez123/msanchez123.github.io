@@ -92,7 +92,7 @@ Builder.prototype.build = function () {
 AH.Builder = Builder;
 AH.VM = new T.MeshLambertMaterial({ vertexColors: true });
 AH.VMG = new T.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.26, depthWrite: false });
-AH.FIREMAT = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0xff5a00, emissiveIntensity: 0.4 });
+AH.FIREMAT = new T.MeshLambertMaterial({ vertexColors: true, emissive: 0xff5a00, emissiveIntensity: 0.05 });
 const flat = {};
 AH.M = c => flat[c] || (flat[c] = new T.MeshLambertMaterial({ color: c }));
 AH.BOX = new T.BoxGeometry(1, 1, 1);
@@ -102,11 +102,12 @@ AH.hex = c => '#' + c.toString(16).padStart(6, '0');
 const stage = AH.stage = AH.$('stage');
 const renderer = AH.renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.localClippingEnabled = true;     // hazards are cut off at the lane edge (see world.js)
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = T.PCFSoftShadowMap;
 AH.$('gl').appendChild(renderer.domElement);
 const scene = AH.scene = new T.Scene();
-const camera = AH.camera = new T.OrthographicCamera(-5, 5, 5, -5, 0.1, 160);
+const camera = AH.camera = new T.OrthographicCamera(-5, 5, 5, -5, -60, 200);
 const CAM_OFF = new T.Vector3(4.5, 11, 9);
 const hemi = AH.hemi = new T.HemisphereLight(0xffffff, 0x9aa8b8, 0.62);
 scene.add(hemi);
