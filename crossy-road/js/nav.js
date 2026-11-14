@@ -25,10 +25,10 @@ Nav.hop = function (f, k, m, t, o) {
   const lim = cont ? COLS + 1 : COLS;
   if (Math.abs(x) > lim + 0.001) return null;
   const bx = Math.round(x), bl = row.blockers.get(bx);
-  if (bl && (!o.fly || bl.kind === 'fence')) return null;                     // arena gates are invisible walls even for flyers
+  if (bl && (!o.fly || bl.kind === 'fence' || bl.kind === 'barrier')) return null;                     // arena gates are invisible walls even for flyers
   if (m > 1 && dx === 0) for (let i = 1; i < m; i++) {                          // a leap cannot skip over a closed gate row either
     const mid = W.get(f.row + (dz === -1 ? i : -i)), mb = mid && mid.blockers.get(bx);
-    if (mb && mb.kind === 'fence') return null;
+    if (mb && (mb.kind === 'fence' || mb.kind === 'barrier')) return null;
   }
   if (o.occ && o.occ(x, r2)) return null;
   if (o.block && o.block(x, -r2)) return null;
@@ -47,7 +47,7 @@ Nav.safe = function (row, x, t, land) {
   if (b && b.on) {
     const z = -row.r;
     if (b.lethalAt(x, z)) return false;
-    if (b.st !== 'tired' && b.st !== 'dying' && b.st !== 'sleep' && Math.hypot(x - b.x, z - b.z) < 3.3) return false;
+    if (b.st !== 'dying' && b.st !== 'sleep' && Math.hypot(x - b.x, z - b.z) < 3.3) return false;
   }
   return true;
 };

@@ -132,5 +132,6 @@ FX.recv = function (t, d) {
   else if (t === 'stomp') FX.stomp(d.r, d.x, false);
   else if (t === 'blast') FX.blast(d.r, d.x, false);
   else if (t === 'poop') FX.poop(d.x, d.z, false, d.y);
+  else if (t === 'brk') W.breakBarrier(d.a, false);
 };
 })();

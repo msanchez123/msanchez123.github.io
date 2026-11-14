@@ -179,12 +179,23 @@ function serpent(x) {
   MIR.forEach(s => b.box(1.5, 0.1, 0.8, F[0], s * 1.2, 3.8, -0.6).box(1.0, 0.1, 0.6, gold, s * 1.5, 3.55, -0.3));   // feathered wings
 }
 
+/* ---- animation metadata ----
+ * mode: walk (legs swing, body bobs), hop (the whole body hops and squashes like a player), float (hovers and sways), roll (vehicle: pitches and rumbles).
+ * arms / tail: which boxes swing as arms or tail, and where they pivot [y, z]. Everything else is the torso. */
 const ARCH = {
-  mushroom: { name: 'Sporelord', fn: mushroom }, treant: { name: 'Elder Treant', fn: treant },
-  bear: { name: 'Grizzlor', fn: x => quad(x, 'bear') }, mammoth: { name: 'Frost Mammoth', fn: x => quad(x, 'mammoth') }, jaguar: { name: 'Stone Jaguar', fn: x => quad(x, 'jaguar') },
-  yeti: { name: 'The Yeti', fn: yeti }, golem: { name: 'Colossus', fn: golem }, scorpion: { name: 'Dune Scorpion', fn: scorpion }, sphinx: { name: 'Sand Sphinx', fn: sphinx },
-  crab: { name: 'Giant Crab', fn: crab }, drake: { name: 'Ember Drake', fn: drake }, mech: { name: 'Demolition Mech', fn: mech }, dozer: { name: 'Rampaging Dozer', fn: dozer },
-  totem: { name: 'Totem Guardian', fn: totem }, serpent: { name: 'Feathered Serpent', fn: serpent }
+  mushroom: { name: 'Sporelord', fn: mushroom, mode: 'hop' }, treant: { name: 'Elder Treant', fn: treant, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 2.3, y: 3.6, z: 0 } },
+  bear: { name: 'Grizzlor', fn: x => quad(x, 'bear'), mode: 'walk' }, mammoth: { name: 'Frost Mammoth', fn: x => quad(x, 'mammoth'), mode: 'walk' },
+  jaguar: { name: 'Stone Jaguar', fn: x => quad(x, 'jaguar'), mode: 'walk', tail: { pred: b => b[6] > 2.1 && b[5] > 1.0, y: 1.5, z: 2.0 } },
+  yeti: { name: 'The Yeti', fn: yeti, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 1.5, y: 3.2, z: 0 } },
+  golem: { name: 'Colossus', fn: golem, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 1.3, y: 3.4, z: 0 } },
+  scorpion: { name: 'Dune Scorpion', fn: scorpion, mode: 'walk', arms: { pred: b => b[6] < -1.2 && Math.abs(b[4]) > 0.6, y: 1.0, z: -1.2 }, tail: { pred: b => b[6] > 1.3 && b[5] > 1.1, y: 1.1, z: 1.4 } },
+  sphinx: { name: 'Sand Sphinx', fn: sphinx, mode: 'hop' },
+  crab: { name: 'Giant Crab', fn: crab, mode: 'walk', arms: { pred: b => b[6] < -1.2 && Math.abs(b[4]) > 0.6, y: 1.2, z: -1.2 } },
+  drake: { name: 'Ember Drake', fn: drake, mode: 'walk' },
+  mech: { name: 'Demolition Mech', fn: mech, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 2.3, y: 4.2, z: 0 } },
+  dozer: { name: 'Rampaging Dozer', fn: dozer, mode: 'roll' },
+  totem: { name: 'Totem Guardian', fn: totem, mode: 'float', arms: { pred: b => Math.abs(b[4]) >= 1.5 && b[5] < 2.4, y: 1.7, z: -0.5 } },
+  serpent: { name: 'Feathered Serpent', fn: serpent, mode: 'float' }
 };
 const POOLS = {
   forest: ['mushroom', 'treant', 'bear', 'golem'], winter: ['mammoth', 'yeti', 'golem'], desert: ['scorpion', 'sphinx', 'crab', 'golem'],
@@ -193,14 +204,36 @@ const POOLS = {
 const TITLE = { golem: { winter: 'Ice Colossus', volcano: 'Magma Colossus', desert: 'Sandstone Colossus', city: 'Concrete Colossus', temple: 'Temple Colossus', forest: 'Stone Colossus' },
   crab: { desert: 'Sand Crab King', volcano: 'Magma Crab', city: 'Robo Crab', forest: 'Giant Crab' } };
 
+/* records every box so the model can be split into parts that move on their own */
+function Rec() { this.list = []; }
+Rec.prototype.box = function (w, h, d, c, x, y, z) { this.list.push([w, h, d, c, x, y, z]); return this; };
+
 AH.creatures = {
+  /* -> { parts: [{ role, geo, pivot:[x,y,z] }], mode, name, kind }. Roles: torso, legA/legB (diagonal pairs), armL/armR, tail. A part's geometry is
+   * centred on its pivot so boss.js can rotate it about the joint. */
   make(th, seed) {
     const rng = AH.seeded(seed), R = (a, b) => a + rng() * (b - a), pool = POOLS[th.id] || POOLS.forest, kind = pool[Math.floor(rng() * pool.length) % pool.length];
-    const b = new AH.Builder(); ARCH[kind].fn({ b: b, R: R, th: th });
-    let hx = 0; for (let i = 0; i < b.p.length; i += 3) hx = Math.max(hx, Math.abs(b.p[i]), Math.abs(b.p[i + 2]));
-    if (hx > 2.8) { const k = 2.8 / hx; for (let i = 0; i < b.p.length; i++) b.p[i] *= k; }     // keep the whole body inside the hit zone
-    const name = (TITLE[kind] && TITLE[kind][th.id]) || ARCH[kind].name;
-    return { geo: b.build(), name: name, kind: kind };
+    const rec = new Rec(), A = ARCH[kind]; A.fn({ b: rec, R: R, th: th });
+    let hx = 0, H = 0; rec.list.forEach(q => { hx = Math.max(hx, Math.abs(q[4]) + q[0] / 2 * 0, Math.abs(q[6])); H = Math.max(H, q[5] + q[1] / 2); });
+    if (hx > 2.8) { const k = 2.8 / hx; rec.list.forEach(q => { q[0] *= k; q[1] *= k; q[2] *= k; q[4] *= k; q[5] *= k; q[6] *= k; }); H *= k; }     // keep the whole body inside the hit zone
+    const yLeg = Math.min(1.9, Math.max(0.8, 0.36 * H)), groups = {};
+    rec.list.forEach(q => {
+      let role = 'torso';
+      if (A.mode === 'walk') {
+        if (A.arms && A.arms.pred(q)) role = q[4] < 0 ? 'armL' : 'armR';
+        else if (A.tail && A.tail.pred(q)) role = 'tail';
+        else if (q[5] <= yLeg && Math.abs(q[4]) > 0.25) role = ((q[4] < 0 ? -1 : 1) * (Math.abs(q[6]) > 0.5 ? (q[6] < 0 ? -1 : 1) : 1) > 0) ? 'legA' : 'legB';
+      } else if (A.mode === 'float' && A.arms && A.arms.pred(q)) role = q[4] < 0 ? 'armL' : 'armR';
+      (groups[role] = groups[role] || []).push(q);
+    });
+    const pivotOf = role => role === 'legA' || role === 'legB' ? [0, yLeg, 0] : role === 'armL' ? [-1.2, A.arms.y, A.arms.z] : role === 'armR' ? [1.2, A.arms.y, A.arms.z] : role === 'tail' ? [0, A.tail.y, A.tail.z] : [0, 0, 0];
+    const parts = Object.keys(groups).map(role => {
+      const pv = pivotOf(role), b = new AH.Builder();
+      groups[role].forEach(q => b.box(q[0], q[1], q[2], q[3], q[4] - pv[0], q[5] - pv[1], q[6] - pv[2]));
+      return { role: role, geo: b.build(), pivot: pv };
+    });
+    const name = (TITLE[kind] && TITLE[kind][th.id]) || A.name;
+    return { parts: parts, mode: A.mode, name: name, kind: kind };
   }
 };
 })();

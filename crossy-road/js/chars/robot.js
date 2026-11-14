@@ -47,6 +47,8 @@ AH.chars.push({
     if (p.dead || a.t > 60 || a.idle > 14 || (p.row >= a.goal && calm && !p.jumping) || p.row >= a.goal + 10) { stop(p); return; }
     if (p.jumping || p.buf || a.wait > 0) return;
     const PL = AH.player;
+    const nb = W.get(p.row + 1);
+    if (nb && nb.barrier && W.arena(W.arenaStart(nb.r)).beaten) { PL.tryMove('F', 1, false, true); a.wait = 0.4; return; }   // smash the exit barrier
     const res = AH.nav.plan({ row: p.row, x: p.x, log: p.log, t: AH.now() }, a.goal,
       { fly: false, occ: PL.occupied, block: (x, z) => !!(AH.boss && AH.boss.blocks(x, z)) });
     if (res.act && res.act !== 'wait') { a.wait = PL.tryMove(res.act, 1, false, true) ? 0.02 : 0.1; return; }

@@ -25,8 +25,8 @@ NET.event = function (t, d, toSelf) {
 };
 NET.sendBoss = function (arr) { if (NET.send.bs) { try { NET.send.bs(arr); } catch (e) {} } };
 function handleEvent(t, d) {
-  if (t === 'kill' || t === 'stomp' || t === 'poop' || t === 'blast') AH.fx.recv(t, d);
-  else if (t === 'bdmg') { if (NET.isHost() && AH.boss) AH.boss.hurt(d.n); }
+  if (t === 'kill' || t === 'stomp' || t === 'poop' || t === 'blast' || t === 'brk') AH.fx.recv(t, d);
+  else if (t === 'bdmg') { if (NET.isHost() && AH.boss) AH.boss.hurt(d.n, d.dx, d.dz); }
   else if (t === 'beat') AH.onBeat(d.a);
   else if (t === 'snap') AH.onSnap(d);
 }

@@ -12,7 +12,7 @@ try { G.best = +localStorage.getItem('avhop-best') || 0; } catch (e) {}
 const P = AH.P = {
   x: 0, y: 0, z: 0, row: 0, baseY: 0, jumping: false, jt: 0, dur: JD, hgt: 0.95, big: false, bounce: false,
   fromX: 0, fromZ: 0, toX: 0, toZ: 0, toRow: 0, fromBase: 0, toBase: 0, ox: 0, oz: 0, orow: 0, obase: 0, ologRef: null, orel: 0,
-  log: null, logOff: 0, dead: false, kind: '', buf: null, landT: 0, bump: 0, holdT: 0, holding: false, faceTarget: 0, dirKey: 'F',
+  log: null, logOff: 0, dead: false, kind: '', kbT: 0, buf: null, landT: 0, bump: 0, holdT: 0, holding: false, faceTarget: 0, dirKey: 'F',
   ch: null, cs: {}, inv: false, fly: false, lift: 0, rig: null, auto: false, burn: false, glow: false, chi: 0
 };
 
@@ -74,6 +74,22 @@ PL.plan = function (k, n) {
   return null;
 };
 
+/* a little collision puff, and a thrown-back hop away from whatever we hit */
+function impact(x, z, cols, shake) { AH.burst(10, x, 0.7, z, cols, 3.2, 4); AH.cam.shake = Math.max(AH.cam.shake, shake || 0.2); AH.beep(110, 0.12, 'square', 0.06, -60); }
+function barrierAhead(k, n) {
+  if (k !== 'F') return null;
+  const bx = Math.round(P.x);
+  for (let i = 1; i <= n; i++) { const r = W.get(P.row + i), bl = r && r.blockers.get(bx); if (bl && bl.kind === 'barrier') return r; }
+  return null;
+}
+const OPP = { F: 'B', B: 'F', L: 'R', R: 'L' };
+PL.knock = function (k) {
+  if (P.dead || P.jumping) { P.bump = 0.3; return; }
+  P.kbT = 0.35; P.bump = 0.3;
+  const f = P.faceTarget;
+  P.nohit = true; const ok = PL.tryMove(OPP[k], 1, true, true); P.nohit = false;
+  if (ok) { P.hgt = 0.7; P.dur = 0.17; P.faceTarget = f; P.dirKey = k; }
+};
 PL.tryMove = function (k, n, isLeap, noCount) {
   n = n || 1;
   if (G.state === 'dead') return false;
@@ -81,7 +97,22 @@ PL.tryMove = function (k, n, isLeap, noCount) {
   setFace(k);
   const pl = PL.plan(k, n);
   if (!pl) {
-    if (AH.boss && AH.boss.hitFlag) { AH.boss.hitFlag = false; AH.boss.hurt(1); }
+    if (AH.boss && AH.boss.hitFlag && !P.nohit) {                  // jumped into the guardian: it is hurt, you are thrown back
+      AH.boss.hitFlag = false;
+      const d = DIRS[k], B = AH.boss;
+      AH.boss.hurt(1, d[0], d[1]);
+      if (B.st !== 'sleep' && B.st !== 'roar' && B.st !== 'rage' && B.st !== 'dying') impact(P.x + d[0] * 0.8, P.z + d[1] * 0.8, [0xffffff, 0xffd23f, P.ch.col], 0.3);
+      PL.knock(k); return false;
+    }
+    const gr = barrierAhead(k, n);
+    if (gr) {                                                      // the exit barrier: unbreakable until the guardian is down
+      const A = W.arenaStart(gr.r);
+      if (W.arena(A).beaten) {
+        AH.net ? AH.net.event('brk', { a: A }, true) : W.breakBarrier(A, false);
+        impact(P.x, P.z - 1, [0xffffff, 0xffd23f, P.ch.col], 0.5);
+      } else { AH.toast && AH.toast('Defeat the guardian first!', 1400); impact(P.x, P.z - 0.8, [0xcfc7b8, 0xffffff], 0.15); }
+      P.bump = 0.2; return false;
+    }
     P.bump = 0.18; AH.beep(130, 0.06, 'square', 0.03); return false; }
   const big = pl.steps > 1, trow = pl.rowObj;
   P.jumping = true; P.jt = 0; P.bounce = false; P.big = big;
@@ -213,6 +244,19 @@ PL.update = function (dt, hold) {
       P.landT -= dt;
       const k = Math.max(0, P.landT) / 0.12;
       sy = 1 - 0.2 * k; sxz = 1 + 0.1 * k;
+    }
+  }
+  // the boss is solid: if it walks into you (or you were carried into it) you get shoved out instead of passing through
+  P.kbT = Math.max(0, P.kbT - dt);
+  const BS = AH.boss;
+  if (BS && BS.on && !P.jumping && !P.fly && P.kbT <= 0 && BS.st !== 'dying' && BS.st !== 'sleep') {
+    const dx = P.x - BS.x, dz = P.z - BS.z;
+    if (Math.hypot(dx, dz) < BS.R - 0.25) {
+      const k = Math.abs(dx) > Math.abs(dz) ? (dx < 0 ? 'L' : 'R') : (dz < 0 ? 'F' : 'B');
+      P.kbT = 0.3; impact(P.x, P.z, [0xffffff, 0xd9d2c0], 0.15);
+      const f = P.faceTarget; P.nohit = true;
+      if (!PL.tryMove(k, 1, true, true)) { const k2 = k === 'F' || k === 'B' ? (dx < 0 ? 'L' : 'R') : (dz < 0 ? 'F' : 'B'); PL.tryMove(k2, 1, true, true); }
+      P.nohit = false; P.faceTarget = f;
     }
   }
   let tilt = 0;

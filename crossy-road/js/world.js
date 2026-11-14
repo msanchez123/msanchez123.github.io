@@ -196,10 +196,78 @@ function groundDetails(b, th) {
   if (th.id === 'desert') for (let i = ri(0, 2); i > 0; i--) b.box(0.6, 0.12, 0.34, th.ground[1], rnd(-COLS, COLS), 0.06, rnd(-0.3, 0.3));
 }
 
+/* the arena floor is dressed per environment, so each guardian fights on its own kind of ground */
+const ARENA_FLOOR = {
+  forest: [0x5c9440, 0x528a39, (b, th, r, k) => {                       // mossy grass, roots, flower tufts and mushroom rings
+    for (let i = ri(4, 7); i > 0; i--) b.box(rnd(0.4, 1.2), 0.05, rnd(0.3, 0.7), pick([0x6fae4c, 0x477a30, 0x7ab85a]), rnd(-COLS, COLS), 0.025, rnd(-0.35, 0.35));
+    for (let i = ri(1, 3); i > 0; i--) b.box(rnd(1, 2.4), 0.07, 0.12, 0x6b4a2f, rnd(-COLS, COLS), 0.035, rnd(-0.35, 0.35));
+    for (let i = ri(2, 5); i > 0; i--) { const x = rnd(-COLS, COLS), z = rnd(-0.35, 0.35); b.box(0.06, 0.16, 0.06, 0x3f7a2a, x, 0.08, z).box(0.14, 0.1, 0.14, pick([0xffd23f, 0xff7aa8, 0xffffff]), x, 0.2, z); }
+  }],
+  winter: [0xd7ecfa, 0xc3def2, (b, th, r, k) => {                       // frozen lake: glossy blocks, cracks, snow drifts
+    b.box(80, 0.04, 0.9, 0xeaf7ff, 0, 0.02, 0);
+    for (let i = ri(2, 4); i > 0; i--) b.box(rnd(0.8, 2.2), 0.03, 0.05, 0x7fb6dc, rnd(-COLS, COLS), 0.05, rnd(-0.38, 0.38));
+    for (let i = ri(1, 3); i > 0; i--) b.box(rnd(0.5, 1.1), 0.14, rnd(0.3, 0.6), 0xffffff, rnd(-COLS, COLS), 0.07, rnd(-0.3, 0.3));
+  }],
+  desert: [0xe3c58f, 0xd8b880, (b, th, r, k) => {                       // wind-rippled sand, buried flagstones, bones
+    for (let i = ri(4, 7); i > 0; i--) b.box(rnd(1, 3), 0.03, 0.06, 0xc9a56a, rnd(-COLS, COLS), 0.03, rnd(-0.4, 0.4));
+    for (let i = ri(1, 3); i > 0; i--) b.box(rnd(0.6, 1.2), 0.06, rnd(0.5, 0.8), 0xb8935a, rnd(-COLS, COLS), 0.03, rnd(-0.3, 0.3));
+    if (rand() < 0.4) { const x = rnd(-COLS, COLS); b.box(0.5, 0.08, 0.12, 0xf3ecd8, x, 0.06, 0).box(0.12, 0.1, 0.12, 0xf3ecd8, x + 0.3, 0.07, 0.05); }
+  }],
+  volcano: [0x2f2830, 0x28222a, (b, th, r, k) => {                      // cracked basalt over glowing lava seams
+    for (let i = ri(3, 6); i > 0; i--) b.box(rnd(0.8, 2.4), 0.04, 0.09, pick([0xff5a14, 0xff8a1a, 0xffb43a]), rnd(-COLS, COLS), 0.025, rnd(-0.4, 0.4));
+    for (let i = ri(2, 4); i > 0; i--) b.box(rnd(0.3, 0.8), 0.12, rnd(0.3, 0.6), 0x1c171d, rnd(-COLS, COLS), 0.06, rnd(-0.3, 0.3));
+    for (let i = ri(1, 3); i > 0; i--) b.box(0.12, 0.05, 0.12, 0xffd23f, rnd(-COLS, COLS), 0.04, rnd(-0.3, 0.3));
+  }],
+  city: [0x3c414d, 0x353a45, (b, th, r, k) => {                         // asphalt plaza: lane paint, neon strips, manholes, hazard stripes
+    for (let x = -COLS; x < COLS; x += 2.2) b.box(1.1, 0.02, 0.1, 0xe6e9f0, x, 0.012, 0.3);
+    if (k % 4 === 1) b.box(COLS * 2 + 1, 0.025, 0.07, pick([0xff2fd0, 0x2ff7ff, 0xffe14a]), 0, 0.02, -0.4);
+    for (let i = ri(1, 2); i > 0; i--) { const x = rnd(-COLS, COLS); b.box(0.7, 0.03, 0.7, 0x23262e, x, 0.015, 0).box(0.5, 0.04, 0.5, 0x4a505c, x, 0.02, 0); }
+    if (k % 3 === 0) for (let x = -COLS; x < COLS; x += 1) b.box(0.5, 0.025, 0.2, x % 2 ? 0xffe14a : 0x1c1f26, x, 0.014, -0.1);
+  }],
+  temple: [0xb9b28c, 0xaaa27c, (b, th, r, k) => {                       // flagstone tiles with carved glyph rows and creeping moss
+    for (let x = -COLS; x <= COLS; x += 1) b.box(0.94, 0.04, 0.94, (x + k) % 2 ? 0xc4bd96 : 0xa39b76, x, 0.02, 0);
+    if (k % 3 === 1) for (let i = ri(3, 6); i > 0; i--) b.box(0.2, 0.06, 0.2, 0x7a7556, rnd(-COLS, COLS), 0.05, rnd(-0.3, 0.3));
+    for (let i = ri(2, 4); i > 0; i--) b.box(rnd(0.3, 0.9), 0.05, rnd(0.3, 0.6), 0x4f8f3f, rnd(-COLS, COLS), 0.045, rnd(-0.3, 0.3));
+  }]
+};
+
+/* the exit barrier: one big themed obstacle across the whole gate row. It does not move until the guardian falls, then a hop into it smashes it. */
+const barrierGeo = th => geo('barrier' + th.id, () => {
+  const b = new Builder(), W2 = COLS * 2 + 1.4, A = th.arena, id = th.id;
+  const jag = (n, f) => { for (let i = 0; i < n; i++) f(-W2 / 2 + (i + 0.5) * W2 / n, i); };
+  if (id === 'forest') {                                                // a pile of giant fallen trees
+    [[0.5, 0.0], [0.5, 0.0], [1.5, 0.35], [2.4, -0.15]].forEach((q, i) => {
+      const y = q[0], h = 0.95, c = i % 2 ? 0x6b4a2f : 0x7a5535;
+      b.box(W2 - 0.4 * i, h, 0.95, c, 0, y, q[1]).box(W2 - 0.4 * i + 0.1, h * 0.8, 0.5, mixHex(c, 0x000000, 0.2), 0, y, q[1] + 0.45);
+      b.box(0.12, h * 0.7, 0.7, 0xd9b27c, -(W2 - 0.4 * i) / 2 - 0.05, y, q[1]).box(0.12, h * 0.7, 0.7, 0xd9b27c, (W2 - 0.4 * i) / 2 + 0.05, y, q[1]);
+    });
+    jag(7, (x, i) => b.box(0.25, 0.5 + (i % 3) * 0.4, 0.25, 0x5a3b22, x, 3.1 + (i % 3) * 0.2, 0.1 * (i % 2)).box(0.7, 0.35, 0.6, i % 2 ? 0x3f7a2a : 0x4cc46f, x, 3.15 + (i % 3) * 0.3, 0));
+  } else if (id === 'winter') {                                         // a wall of ice blocks and crystal spikes
+    for (let l = 0; l < 3; l++) jag(l % 2 ? 6 : 7, (x, i) => b.box(W2 / (l % 2 ? 6 : 7) - 0.08, 1.05, 1.0, [0xbfe3f8, 0xdff3ff, 0x9fd2ee][(i + l) % 3], x, 0.55 + l * 1.05, 0));
+    jag(8, (x, i) => { const h = 0.9 + (i * 37 % 5) * 0.28; b.box(0.5, h, 0.5, 0xeaf8ff, x, 3.15 + h / 2, 0).box(0.3, h * 0.6, 0.3, 0x7cc8f0, x, 3.15 + h * 0.8, 0); });
+  } else if (id === 'desert') {                                         // toppled sandstone colossus and boulders
+    for (let l = 0; l < 3; l++) jag(l === 1 ? 5 : 6, (x, i) => b.box(W2 / (l === 1 ? 5 : 6) - 0.06, 1.1, 1.0, [0xe2c58e, 0xd1ad70, 0xc29a58][(i + l) % 3], x, 0.55 + l * 1.1, 0));
+    b.box(1.1, 1.6, 1.1, 0xb8935a, -3.5, 4.1, 0).box(0.7, 0.35, 0.8, 0xe2c58e, -3.5, 5.1, 0.05).box(2.4, 0.9, 1.0, 0xd1ad70, 1.8, 3.8, 0).box(0.9, 0.9, 1.0, 0xc2410c, 3.3, 4.6, 0);
+  } else if (id === 'volcano') {                                        // obsidian spires with molten seams
+    for (let l = 0; l < 2; l++) jag(7, (x, i) => b.box(W2 / 7 - 0.05, 1.3, 1.0, [0x2b2630, 0x1f1a23][(i + l) % 2], x, 0.65 + l * 1.3, 0).box(W2 / 7 - 0.25, 0.1, 1.04, [0xff5a14, 0xffb43a][(i + l) % 2], x, 1.0 + l * 1.3, 0));
+    jag(7, (x, i) => { const h = 1.2 + (i * 53 % 6) * 0.35; b.box(0.7, h, 0.7, 0x1a151d, x, 2.6 + h / 2, 0).box(0.34, h * 0.8, 0.74, 0xff5a14, x, 2.6 + h * 0.5, 0); });
+  } else if (id === 'city') {                                           // a stack of shipping containers and a wrecked truck
+    const cols = [0xe5484d, 0x2f6fd6, 0xf2b01e, 0x2dae6f, 0xb44bd6];
+    for (let l = 0; l < 3; l++) jag(l === 1 ? 3 : 4, (x, i) => { const w = W2 / (l === 1 ? 3 : 4) - 0.08; b.box(w, 1.15, 1.05, cols[(i * 2 + l) % 5], x, 0.6 + l * 1.2, 0).box(w - 0.2, 0.08, 1.1, 0x20242c, x, 0.2 + l * 1.2, 0).box(w - 0.2, 0.08, 1.1, 0x20242c, x, 1.0 + l * 1.2, 0); });
+    b.box(0.14, 1.8, 0.14, 0x4a505c, -5, 4.45, 0).box(1.6, 0.4, 0.2, 0xff2fd0, -5, 5.2, 0).box(0.14, 1.5, 0.14, 0x4a505c, 4.5, 4.3, 0).box(1.2, 0.35, 0.2, 0x2ff7ff, 4.5, 4.9, 0);
+  } else {                                                              // temple: carved stone door flanked by pillars
+    b.box(W2, 3.0, 1.0, 0xb5ae8a, 0, 1.5, 0).box(W2 - 1, 0.3, 1.1, 0x8a8560, 0, 3.15, 0);
+    jag(5, (x, i) => b.box(1.7, 2.6, 0.2, i % 2 ? 0x9a9170 : 0xa8a07c, x, 1.4, 0.55).box(1.0, 0.7, 0.24, 0xc98a3a, x, 1.7, 0.6).box(0.4, 0.4, 0.28, 0xffd23f, x, 1.7, 0.66));
+    jag(4, (x, i) => b.box(0.9, 1.2, 1.0, 0x8a8560, x, 3.9, 0).box(0.5, 0.3, 1.04, 0xffd23f, x, 4.65, 0));
+  }
+  return b.build();
+});
+
 /* arena dressing: a ring of runes on the floor, debris, and posts with banners at the entrance and exit gates. No walls: the invisible wall bounds it. */
 function arenaDecor(b, th, r, k, gate) {
-  const A = th.arena, SIDES = [-1, 1];
-  b.box(80, 0.5, 1, (k + r) % 2 ? A.a : A.b, 0, -0.25, 0);
+  const A = th.arena, SIDES = [-1, 1], FL = ARENA_FLOOR[th.id], alt = (k + r) % 2;
+  b.box(80, 0.5, 1, FL ? FL[alt] : (alt ? A.a : A.b), 0, -0.25, 0);
+  if (FL) FL[2](b, th, r, k, alt);
   [5.4, 2.7].forEach(R => { const dz = k - 7; if (Math.abs(dz) <= R) { const x = Math.sqrt(R * R - dz * dz), w = Math.abs(dz) > R - 0.6 ? 1.3 : 0.5; for (const s of x < 0.3 ? [1] : SIDES) b.box(w, 0.03, 0.62, A.accent, s * x, 0.015, 0); } });
   if (k === 7) b.box(1.2, 0.04, 1.2, A.accent, 0, 0.02, 0).box(0.5, 0.06, 0.5, A.flame[1], 0, 0.04, 0);
   if (k === 1) b.box(COLS * 2 + 1, 0.03, 0.34, A.flag, 0, 0.015, 0.1);
@@ -302,11 +370,10 @@ function makeRow(r) {
     row.group.add(lamp); row.lamp = lamp;
     row.train = { mesh: m, dir: dir, len: len, T: tm, warn: 1.3, speed: 30, off: rnd(0, tm), alive: !W.killed.has(r + ':-1'), row: r, idx: -1, kind: 'train' };
   } else if (type === 'gate') {
-    if (!W.arena(W.arenaStart(r)).beaten) {
-      for (let x = -COLS; x <= COLS; x++) {
-        const m = new T.Mesh(fenceGeo(th), VM); m.position.x = x; m.castShadow = true; row.group.add(m);
-        row.blockers.set(x, { kind: 'fence', node: m });
-      }
+    if (!W.arena(W.arenaStart(r)).broken) {
+      const m = new T.Mesh(barrierGeo(th), VM); m.castShadow = true; row.group.add(m);
+      row.barrier = { mesh: m, th: th };
+      for (let x = -COLS; x <= COLS; x++) row.blockers.set(x, { kind: 'barrier', node: null });
     }
   }
   scene.add(row.group);
@@ -380,41 +447,49 @@ W.removeBlocker = function (r, c, silent) {
   if (!silent) AH.burst(8, c, 0.8, -r, [0x7b4f2a, 0x4cc46f, 0xb7c0c8], 3, 4);
   return true;
 };
-/* the arena's entrance: once the boss is awake a gate drops across the first row and stays shut until the guardian falls */
+/* the arena's entrance: once the boss is awake it is sealed by an INVISIBLE lock (no wall to look at) until the guardian falls */
 W.entrance = function (A, closed) {
   const row = W.rows.get(A);
   if (!row || row.type !== 'arena') return;
-  const g = row.gate || (row.gate = { closed: false, k: 1, meshes: [] });
+  const g = row.gate || (row.gate = { closed: false });
   if (closed === g.closed) return;
   g.closed = closed;
-  if (closed) {
-    const th = AH.themeAt(A);
-    g.k = 0;
-    for (let x = -COLS; x <= COLS; x++) {
-      if (row.blockers.has(x)) continue;
-      const m = new T.Mesh(fenceGeo(th), VM); m.position.set(x, 6, 0); m.castShadow = true; row.group.add(m);
-      row.blockers.set(x, { kind: 'fence', node: m }); g.meshes.push(m);
-    }
-  } else {
-    g.meshes.forEach(m => { row.group.remove(m); });
-    row.blockers.forEach((bl, x) => { if (bl.kind === 'fence') row.blockers.delete(x); });
-    g.meshes = [];
-  }
+  if (closed) { for (let x = -COLS; x <= COLS; x++) if (!row.blockers.has(x)) row.blockers.set(x, { kind: 'fence', node: null }); }
+  else row.blockers.forEach((bl, x) => { if (bl.kind === 'fence') row.blockers.delete(x); });
 };
 W.beat = function (A) {
   W.arena(A).beaten = true;
   W.entrance(A, false);
+};
+/* the exit barrier of arena A: only breakable once the guardian is beaten. Returns the gate row's barrier, or null. */
+W.barrierAt = function (A) { const row = W.rows.get(A + AH.ARENA_LEN - 1); return row && row.barrier && !W.arena(A).broken ? row : null; };
+W.breakBarrier = function (A, silent) {
+  const a = W.arena(A); if (a.broken) return false;
+  a.broken = true;
   const row = W.rows.get(A + AH.ARENA_LEN - 1);
-  if (row) { row.blockers.forEach(bl => row.group.remove(bl.node)); row.blockers.clear(); }
+  if (!row) return true;
+  row.blockers.forEach((bl, x) => { if (bl.kind === 'barrier') row.blockers.delete(x); });
+  const bar = row.barrier; row.barrier = null;
+  if (bar) {
+    row.group.remove(bar.mesh);
+    if (!silent) {
+      const z = -row.r, ar = bar.th.arena, cols = [ar.pillar[0], ar.pillar[1], ar.flame[0], ar.flame[1], bar.th.tree ? bar.th.tree.trunk : 0x7a5535];
+      for (let x = -COLS; x <= COLS; x += 1.5) AH.burst(4, x, 0.8 + Math.random() * 1.4, z, cols, 4.5, 6);
+      AH.cam.shake = Math.max(AH.cam.shake, 0.7); AH.beep(70, 0.6, 'sawtooth', 0.1, -30);
+      if (AH.boss && AH.boss.boom) { AH.boss.th = bar.th; for (let x = -COLS + 2; x <= COLS; x += 5) AH.boss.boom(x, z, 2.6, 0, true); }
+    }
+  }
+  return true;
 };
 
 /* what a player who joins mid-round needs to rebuild the same world */
 W.snapshot = function () {
-  return { k: Array.from(W.killed), rm: Array.from(W.removed), bt: Object.keys(W.arenas).filter(a => W.arenas[a].beaten).map(Number) };
+  return { k: Array.from(W.killed), rm: Array.from(W.removed), bt: Object.keys(W.arenas).filter(a => W.arenas[a].beaten).map(Number), br: Object.keys(W.arenas).filter(a => W.arenas[a].broken).map(Number) };
 };
 W.applySnapshot = function (s) {
   if (!s) return;
   (s.bt || []).forEach(A => W.beat(A));
+  (s.br || []).forEach(A => W.breakBarrier(A, true));
   (s.rm || []).forEach(id => { const q = id.split(':'); W.removeBlocker(+q[0], +q[1], true); });
   (s.k || []).forEach(id => { const q = id.split(':'); W.killObj(+q[0], +q[1], true); });
 };
@@ -435,11 +510,6 @@ W.update = function (dt, fx, fz) {
       if (s.x !== null) { tr.mesh.position.x = s.x; tr.x = s.x; }
       const on = s.warn && Math.floor(t * 6) % 2 === 0;
       row.lamp.material = AH.M(on ? 0xff3b3b : 0x552222);
-    }
-    if (row.gate && row.gate.closed && row.gate.k < 1) {
-      const g = row.gate; g.k = Math.min(1, g.k + dt * 2.2);
-      g.meshes.forEach(m => { m.position.y = 6 * (1 - g.k * g.k); });
-      if (g.k >= 1) { AH.cam.shake = Math.max(AH.cam.shake, 0.45); AH.beep(70, 0.5, 'sawtooth', 0.09, -30); for (let x = -COLS; x <= COLS; x += 2) AH.burst(2, x, 0.2, -row.r, [0xcfc7b8, 0xffffff], 2, 2.5); }
     }
     // canopies fade when the player stands under or right behind them
     if (row.canopies.length && Math.abs(-row.r - fz) < 3.2) {
