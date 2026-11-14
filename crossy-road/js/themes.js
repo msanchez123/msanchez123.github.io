@@ -17,7 +17,6 @@ const THEMES = AH.THEMES = [
     tree: { style: 'oak', trunk: 0x7b4f2a, a: [0x2a8f4f, 0x2f9a58], b: [0x39a860, 0x3fb36a], c: 0x4cc46f, cap: 0xdff5c8 }, rock: [0x9aa3ad, 0xb7c0c8, 0x8a939d],
     fence: [0x8a6a4a, 0xb08a5a],
     arena: { a: 0xcfc7b8, b: 0xc2baa9, accent: 0x8fa77a, wall: 0x9d9484, wallTop: 0xb9b0a0, pillar: [0xb9b0a0, 0x9d9484], moss: 0x5f8f4a, flame: [0xff7a1a, 0xffd23f], flag: 0xe5484d, prop: 'ruin' },
-    edge: { len: 15, hi: 9, ramp: 8, depth: 11, cliff: 3, far: 9, rough: 0.3, q: 0.5, flora: 0.3, treeline: 6, peak: 0xaab3bb, fog: 0xd9f2ff, fall: 0xbfe6ff },
     mix: { grass: 1, road: 1, water: 1, rail: 1, lily: 1, conv: 1, roll: 1 },
     chase: { id: 'mud', label: 'MUDSLIDE', slab: 0x6b4a2f, rocks: [0x7a5535, 0x5d3f27, 0x8b6a45, 0x4c3320], dust: [0x7a5535, 0x5d3f27, 0x9a7a50], glow: 0, death: 'Buried in mud!' } },
 
@@ -31,7 +30,6 @@ const THEMES = AH.THEMES = [
     tree: { style: 'pine', trunk: 0x6b4a33, a: [0x1f6b4a, 0x23785a], b: [0x2b8a63, 0x319a70], c: 0x3bb07c, cap: 0xffffff }, rock: [0x8e9db0, 0xc5d3e2, 0x7a899c],
     fence: [0x9cc4e0, 0xdff1fb],
     arena: { a: 0xdcebf7, b: 0xc9dff0, accent: 0x7cc8f0, wall: 0x9cc4e0, wallTop: 0xeaf6ff, pillar: [0xbfe3f8, 0x8fc4e6], moss: 0xffffff, flame: [0x38bdf8, 0xe0f7ff], flag: 0x38bdf8, prop: 'ice' },
-    edge: { len: 14, hi: 11, ramp: 7, depth: 12, cliff: 3, far: 10, rough: 0.35, q: 0.5, flora: 0.28, treeline: 5, peak: 0xffffff, fog: 0xeaf4ff, fall: 0xd8f0ff },
     mix: { grass: 1, road: 0.8, water: 1.35, rail: 0.7, lily: 1.3, conv: 0.9, roll: 1.4 },
     chase: { id: 'snow', label: 'AVALANCHE', slab: 0xf2f9ff, rocks: [0xffffff, 0xe9f5ff, 0xd5eafb, 0xf6fbff], dust: [0xffffff, 0xe9f5ff, 0xcfe6f7], glow: 0, death: 'Buried in snow!' } },
 
@@ -45,7 +43,6 @@ const THEMES = AH.THEMES = [
     tree: { style: 'cactus', trunk: 0x2f8f4a, a: [0x2f8f4a, 0x3aa35a], b: [0x45b86a, 0x4ac36f], c: 0x6fdc8c, cap: 0xff7ab0 }, rock: [0xc9a56a, 0xe2c58e, 0xb08a52],
     fence: [0xb08a52, 0xd8b479],
     arena: { a: 0xe6d0a0, b: 0xd9bf8a, accent: 0xc98a3a, wall: 0xb8935a, wallTop: 0xe2c58e, pillar: [0xd9bf8a, 0xb8935a], moss: 0x2f8f4a, flame: [0xff6a00, 0xffd23f], flag: 0xc2410c, prop: 'obelisk' },
-    edge: { len: 16, hi: 8, ramp: 3.5, depth: 10, cliff: 2.5, far: 8, rough: 0.12, q: 2, flora: 0.1, treeline: 5, peak: 0xf0d9a6, fog: 0xffeccd, fall: 0 },
     mix: { grass: 1, road: 1.3, water: 0.6, rail: 1.1, lily: 0.7, conv: 0.9, roll: 1.7 },
     chase: { id: 'sand', label: 'SANDSTORM', slab: 0xd9b36a, rocks: [0xe2c58e, 0xcfa95f, 0xb98f45, 0xf0d9a6], dust: [0xe9cf94, 0xd9b36a, 0xf5e3b5], glow: 0, death: 'Buried in sand!' } },
 
@@ -59,7 +56,6 @@ const THEMES = AH.THEMES = [
     tree: { style: 'char', trunk: 0x241d20, a: [0x2f262a, 0x3a3034], b: [0x4a3a3a, 0x4a3a3a], c: 0xff6a1a, cap: 0xff8a1a }, rock: [0x4a424c, 0x6a5a6a, 0x332d38],
     fence: [0x2f2a36, 0xff6a1a],
     arena: { a: 0x4a4250, b: 0x3d3644, accent: 0xff6a1a, wall: 0x2f2a36, wallTop: 0x5a4a5a, pillar: [0x3a3340, 0x2b2630], moss: 0xff6a1a, flame: [0xff3d00, 0xffd23f], flag: 0xff6a1a, prop: 'basalt' },
-    edge: { len: 13, hi: 10, ramp: 6, depth: 13, cliff: 3, far: 10, rough: 0.5, q: 0.5, flora: 0.18, treeline: 7, peak: 0x6a5a6a, fog: 0xd6704a, fall: 0xff8a2a },
     mix: { grass: 1, road: 0.75, water: 1.35, rail: 0.9, lily: 1.5, conv: 1.4, roll: 1 },
     chase: { id: 'lava', label: 'LAVA FLOW', slab: 0xff5a14, rocks: [0xff7a1a, 0x2b2630, 0xff4a0a, 0x3a3340], dust: [0xff6a1a, 0xffb43a, 0x2b2630], glow: 0xff3d00, death: 'Scorched!' } },
 
@@ -73,7 +69,6 @@ const THEMES = AH.THEMES = [
     tree: { style: 'tower', trunk: 0x5d6570, a: [0x6a7380, 0x7a8492], b: [0x4a5568, 0x35405a], c: 0xffd98a, cap: 0x38e1ff }, rock: [0x7a828f, 0x9aa3b0, 0x5d6570],
     fence: [0x5d6570, 0xf5d142],
     arena: { a: 0x6b7280, b: 0x5d6570, accent: 0x38e1ff, wall: 0x3a4150, wallTop: 0x5a6475, pillar: [0x4a5160, 0x2f3440], moss: 0x38e1ff, flame: [0xff4fa0, 0x38e1ff], flag: 0xff4fa0, prop: 'tower' },
-    edge: { len: 12, hi: 12, ramp: 5, depth: 12, cliff: 1.5, far: 10, rough: 0, q: 1, flora: 0, treeline: 99, peak: 0x5a6475, fog: 0xf7b6c8, fall: 0, blocks: true, body: [0x3a4150, 0x2a3550, 0x4a5568, 0x35405a], top: [0x4a5160, 0x5d6570] },
     mix: { grass: 0.7, road: 1.6, water: 0.5, rail: 1.3, lily: 0.4, conv: 1.2, roll: 0.8 },
     chase: { id: 'rubble', label: 'DEMOLITION', slab: 0x7a828f, rocks: [0x8a93a1, 0x5d6570, 0xb4bcc8, 0x4a5160], dust: [0xb4bcc8, 0x8a93a1, 0xe0e5eb], glow: 0, death: 'Crushed by rubble!' } },
 
@@ -87,7 +82,6 @@ const THEMES = AH.THEMES = [
     tree: { style: 'palm', trunk: 0x8a6a3a, a: [0x2f9a45, 0x3fb55a], b: [0x4cc46f, 0x5ad577], c: 0x7be08f, cap: 0xffd23f }, rock: [0x9a9484, 0xb5ae9a, 0x7a7566],
     fence: [0x8a7a5a, 0xf2c14e],
     arena: { a: 0xcdbf94, b: 0xbfb084, accent: 0x2fb0a0, wall: 0x8f8566, wallTop: 0xb5a97c, pillar: [0xb5a97c, 0x8f8566], moss: 0x4a8a3a, flame: [0xff7a1a, 0x2fe0c0], flag: 0x1f9a8a, prop: 'pyramid' },
-    edge: { len: 14, hi: 9, ramp: 9, depth: 10, cliff: 3, far: 9, rough: 0.2, q: 1, flora: 0.34, treeline: 6, peak: 0xb5ae9a, fog: 0xfff0b8, fall: 0xbfeee6 },
     mix: { grass: 1.1, road: 0.7, water: 1, rail: 0.5, lily: 1.2, conv: 0.6, roll: 1.8 },
     chase: { id: 'ruin', label: 'COLLAPSE', slab: 0x9a9170, rocks: [0xb5ae8a, 0x7a7556, 0x8a8a70, 0x5b5a45], dust: [0xb5ae8a, 0x8a8560, 0xd9d2a8], glow: 0, death: 'Crushed by ruins!' } }
 ];

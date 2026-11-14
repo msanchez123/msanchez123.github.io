@@ -7,7 +7,7 @@ const AH = window.AH, T = AH.T;
 const COLS = AH.COLS, WRAP = AH.WRAP, PER = AH.PER, Builder = AH.Builder, VM = AH.VM, scene = AH.scene;
 const rnd = (a, b) => AH.rnd(a, b), ri = (a, b) => AH.ri(a, b), rand = () => AH.rand();
 const pick = arr => arr[Math.floor(rand() * arr.length)];
-const W = AH.world = { rows: new Map(), gen: -9, run: 'grass', runLeft: 0, pathCol: 0, arenas: {}, killed: new Set(), removed: new Set(), seedN: 1 };
+const W = AH.world = { rows: new Map(), gen: -9, run: 'grass', runLeft: 0, pathCol: 0, arenas: {}, killed: new Set(), removed: new Set() };
 
 const wrapX = W.wrapX = v => ((v + WRAP) % PER + PER) % PER - WRAP;
 W.objX = (o, t) => wrapX(o.x0 + o.dir * o.speed * t);
@@ -15,104 +15,6 @@ W.arenaStart = r => (r >= AH.ARENA_EVERY && r % AH.ARENA_EVERY < AH.ARENA_LEN) ?
 W.arena = A => W.arenas[A] || (W.arenas[A] = { beaten: false });
 W.firstOpenArena = function () { for (let A = AH.ARENA_EVERY; A < 5000; A += AH.ARENA_EVERY) if (!W.arena(A).beaten) return A; return 1e9; };
 const mixHex = (a, b, k) => new T.Color(a).lerp(new T.Color(b), k).getHex();
-
-/* ---- terrain beyond the lanes ----
- * Nothing marks the edge of the course. Past the last tile the ground is a seeded height field (pure function of seed, row and distance), so it
- * flows from row to row: here a slope climbs into mountains, there a ledge breaks off into a misty drop with a far ridge on the other side.
- * Rows that carry fast hazards cut a rock portal into it (cars, trains and boulders come out of the rock), rivers and belts spill over the lip,
- * and boss arenas sit in a bowl whose walls rise around them. The invisible wall (|x| > COLS) still does the real blocking. */
-const PIT = 13, COLC = [1, 2, 3, 4, 5, 6, 7, 8, 9.5, 11.5, 13.5, 15.5, 17.5, 19.5, 21.5, 23.5, 25.5, 27.5];
-const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-function hash3(i, j, s) { let h = Math.imul(i | 0, 374761393) ^ Math.imul(j | 0, 668265263) ^ Math.imul(s | 0, 1274126177); h = Math.imul(h ^ (h >>> 13), 1103515245); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
-function vnoise(x, y, s) {
-  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-  const a = hash3(xi, yi, s), b = hash3(xi + 1, yi, s), c = hash3(xi, yi + 1, s), d = hash3(xi + 1, yi + 1, s);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-}
-/* natural height of the ground c blocks outside the lane edge (c >= 1), on one side, at row r */
-function edgeBase(th, side, r, c) {
-  const E = th.edge, S = W.seedN + side * 7919;
-  const m = vnoise(r / E.len, 3.7, S) * 2 - 1, t = smooth(-0.2, 0.2, m);          // 0 = ledge and drop, 1 = mountain
-  const pk = E.hi * (0.5 + 0.5 * vnoise(r / 9, 1.3, S + 11));
-  const det = E.blocks ? (hash3(Math.floor(r / 3), Math.floor((c + 0.5) / 3), S + 5) - 0.5) * 7 : (vnoise(r / 2.6, c / 2.4, S + 5) - 0.5) * Math.min(c, 10) * E.rough * 2;
-  const mtn = (pk + (E.blocks ? det : 0)) * smooth(0.4, E.ramp, c) + (E.blocks ? 0 : det);
-  const dep = E.depth * (0.55 + 0.45 * vnoise(r / 10, 8.1, S + 17)), far = E.far * (0.6 + 0.4 * vnoise(r / 7, 2.9, S + 23)) * smooth(15, 27, c);
-  const drop = -dep * smooth(0.5, 0.5 + E.cliff, c) + far + (vnoise(r / 3, c / 3, S + 31) - 0.5) * 1.6 * smooth(2, 6, c);
-  let h = drop + (mtn - drop) * t;
-  const q = c <= 2.5 ? Math.min(E.q, 0.5) : E.q, cap = 2.2 * c - 0.7;                // the cap keeps the near slope from hiding the lane from the camera
-  h = Math.min(h, cap); h = Math.floor(h / q + 0.5) * q; if (h > cap) h -= q;
-  if (c <= 2.5 && Math.abs(h) < 0.5) h = t >= 0.5 ? 0.5 : -0.5;                     // the lane never just runs on into more flat ground
-  return Math.max(h, -E.depth - 3);
-}
-/* ov: what this particular row does to its edges: pit (river / belt spill over the lip), portal (hazard tunnel), flat (gate shoulder), arena (0..1 bowl) */
-function edgeH(th, side, r, c, ov) {
-  let h = edgeBase(th, side, r, c);
-  if (ov.arena > 0) {
-    const ch = (c <= 1.5 ? 1.5 : c <= 2.5 ? 3 : Math.min(4.5 + (c - 3) * 0.4, 9.5)) + (c > 2.5 ? (vnoise(r / 2, c / 2, W.seedN + side) - 0.5) * 1.5 : 0);
-    const target = c <= 2.5 ? ch : Math.max(h, ch);
-    h = Math.round((h + (target - h) * ov.arena) * 2) / 2;
-  }
-  if (ov.portal && c <= 2.5) h = Math.max(h, 1.5);
-  if (ov.pit && c >= 1.5 && c <= 4.5) h = -PIT;
-  if (ov.flat && c <= 1.5) h = 0;
-  return h;
-}
-/* a stack of stacked bands from yTop down to yBot, tinted by depth (towards the mist) and height (towards the peak colour) */
-function bands(b, x, w, yTop, yBot, P, th, farK, par) {
-  const E = th.edge, n = Math.max(1, Math.min(6, Math.ceil((yTop - yBot) / (E.blocks ? 1.6 : 3)))), hh = (yTop - yBot) / n;
-  for (let i = 0; i < n; i++) {
-    const ym = yTop - hh * (i + 0.5);
-    let c = P[(i + par) % P.length];
-    if (ym > 3) c = mixHex(c, E.peak, Math.min(0.6, (ym - 3) / 9));
-    c = mixHex(c, E.fog, Math.min(0.88, Math.max(ym < 0 ? -ym / 16 : 0, farK)));
-    b.box(w, hh, 1, c, x, ym, 0);
-  }
-}
-/* builds both sides of one row, fills eh[side] (c -> top height), returns spots where trees and rocks may stand */
-function terrain(b, th, r, ov, eh, prev) {
-  const E = th.edge, S = W.seedN, spots = [], wall = ov.arena > 0.5;
-  const P = wall ? [th.arena.wall, th.arena.pillar[0], th.arena.pillar[1]] : (E.body || th.rock), topC = wall ? [th.arena.wallTop, th.arena.wallTop] : (E.top || th.ground);
-  const neon = th.arena.flame[1];
-  for (let side = 0; side < 2; side++) {
-    const sg = side ? 1 : -1, H = eh[side];
-    COLC.forEach(c => H.set(c, edgeH(th, side, r, c, ov)));
-    if (ov.skip1) H.set(1, -0.5);                                                    // that column is the river / belt itself
-    for (let k = 0; k < COLC.length; k++) {
-      const c = COLC[k]; if (ov.skip1 && c === 1) continue;
-      const w = c > 8 ? 2 : 1, x = sg * (COLS + c), h = H.get(c), outer = k + 1 < COLC.length ? H.get(COLC[k + 1]) : h, inner = k === 0 ? 0 : H.get(COLC[k - 1]);
-      const xN = side ? outer : inner, pz = prev ? prev[side].get(c) : undefined, zN = pz === undefined ? h : pz, farK = Math.max(0, (c - 8) / 26);
-      const steep = Math.abs(h - outer) > 1.01 || Math.abs(h - inner) > 1.01;
-      let cap;
-      if (E.blocks || wall) cap = topC[(k + r) & 1];
-      else if (h > E.treeline + 1) cap = E.peak;
-      else if (h < -2 || (steep && h > 1.5)) cap = P[1];
-      else cap = topC[(r + k) & 1];
-      b.box(w, 0.35, 1, mixHex(cap, E.fog, Math.min(0.9, Math.max(h < 0 ? -h / 15 : 0, farK))), x, h - 0.175, 0);
-      const bot = Math.max(-16, Math.min(h, xN, zN));                                // only the faces the camera can see (towards +x and towards lower rows) get a body
-      if (bot < h - 0.4) bands(b, x, w, h - 0.35, bot, P, th, farK, (k + r) & 1);
-      if (E.blocks && h >= 4) {
-        const q = hash3(r, k, S + 9);
-        if (q < 0.3) b.box(w + 0.04, 0.12, 1.04, neon, x, h * 0.55, 0);
-        if (q > 0.55 && q < 0.7) b.box(0.5, 0.4, 0.5, 0x7a828f, x, h + 0.2, 0);
-        else if (q > 0.93) b.box(0.1, 1.6, 0.1, 0x3a4350, x, h + 0.8, 0).box(0.16, 0.16, 0.16, 0xff3b5c, x, h + 1.65, 0);
-      }
-      if (!wall && !ov.pit && !ov.portal && E.flora > 0 && h > -0.4 && h <= E.treeline && !steep) spots.push({ x: x + (w > 1 ? rnd(-0.6, 0.6) : 0), y: h, p: E.flora * (c <= 1.5 ? 0.5 : w > 1 ? 1.4 : 1) });
-    }
-    // the lane's own edge wall, where the ground drops away below it (the right-hand side is the one the camera sees)
-    const h1 = H.get(1);
-    if (side && h1 < -0.9) bands(b, COLS + 0.25, 0.5, -0.5, Math.max(-16, h1), P, th, 0, r & 1);
-    // a stream tumbling down one of the ledges
-    if (E.fall && !wall && !ov.pit && hash3(r, side, S + 41) < 0.1) {
-      for (let k = 0; k < 6; k++) {
-        const c = COLC[k], hc = H.get(c), hn = H.get(COLC[k + 1]);
-        if (hc - hn >= 3 && hc > 0) { const m = (hc + hn) / 2; b.box(0.34, hc - hn, 0.55, E.fall, sg * (COLS + c + 0.55), m, 0).box(0.55, 0.12, 0.8, 0xffffff, sg * (COLS + c + 0.4), hc + 0.06, 0).box(0.9, 0.3, 0.9, 0xffffff, sg * (COLS + c + 0.8), hn + 0.15, 0); break; }
-      }
-    }
-    // a bank of cloud in the deep
-    if (!wall && H.get(3) < -7 && hash3(r, side, S + 53) < 0.4) b.box(rnd(2, 4), 0.5, rnd(0.6, 1), mixHex(E.fog, 0xffffff, 0.35), sg * (COLS + rnd(3, 8)), -rnd(5, 10), 0);
-  }
-  return spots;
-}
 
 /* ---- cached geometry (keyed by theme) ---- */
 const G = {};
@@ -236,15 +138,11 @@ function buildBeast(style, dir) {
   }
   return b.build();
 }
-/* hazards that run in and out of the rock portals are cut off at the lane edge, so they always seem to come out of (and vanish into) the cliff */
-const CLIP = [new T.Plane(new T.Vector3(1, 0, 0), COLS + 0.5), new T.Plane(new T.Vector3(-1, 0, 0), COLS + 0.5)];
-const HVM = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: CLIP, clipShadows: true });
-const hm = {}; const HM = c => hm[c] || (hm[c] = new T.MeshLambertMaterial({ color: c, clippingPlanes: CLIP, clipShadows: true }));
 const TAU = Math.PI * 2;
 const CAR_COLORS = [0xe5484d, 0x3b82f6, 0xf5c518, 0x9b5de5, 0x2dd4bf, 0xff7a59, 0xf1f5f9];
 
 /* ---- type selection ---- */
-const TYPES = [['grass', 0.27, 1, 3, 0], ['road', 0.24, 1, 3, 0], ['water', 0.18, 1, 2, 0], ['rail', 0.08, 1, 2, 12],
+const TYPES = [['grass', 0.2, 1, 2, 0], ['road', 0.24, 1, 3, 0], ['water', 0.18, 1, 2, 0], ['rail', 0.08, 1, 2, 12],
   ['lily', 0.1, 1, 3, 6], ['conv', 0.08, 1, 2, 8], ['roll', 0.12, 1, 3, 4]];
 function pickType(r) {
   const A = W.arenaStart(r);
@@ -263,7 +161,7 @@ function pickType(r) {
 }
 
 /* ---- row construction ---- */
-function addObstacle(row, x, rock, solid, th, y) {
+function addObstacle(row, x, rock, solid, th) {
   const g = new T.Group();
   if (rock) {
     const m = new T.Mesh(rockGeo(th, rand() < 0.5 ? 0 : 1), VM); m.castShadow = true; g.add(m);
@@ -273,7 +171,7 @@ function addObstacle(row, x, rock, solid, th, y) {
     if (parts.crown) { const can = new T.Mesh(parts.crown, VM); can.castShadow = true; g.add(can); row.canopies.push({ mesh: can, x: x }); }
     const s = rnd(0.9, 1.2); g.scale.set(s, s * rnd(0.95, 1.15), s);
   }
-  g.position.set(x, y || 0, 0); g.rotation.y = ri(0, 3) * 1.5708;
+  g.position.x = x; g.rotation.y = ri(0, 3) * 1.5708;
   row.group.add(g);
   if (solid) row.blockers.set(x, { kind: rock ? 'rock' : 'tree', node: g });
 }
@@ -281,7 +179,7 @@ function addObstacle(row, x, rock, solid, th, y) {
 function groundDetails(b, th) {
   const n = ri(8, 14);
   for (let i = 0; i < n; i++) {
-    const x = rnd(-COLS, COLS), z = rnd(-0.4, 0.4), h = rnd(0.3, 0.55), c = rand() < 0.5 ? th.tuft[0] : th.tuft[1];
+    const x = rnd(-COLS - 3, COLS + 3), z = rnd(-0.4, 0.4), h = rnd(0.3, 0.55), c = rand() < 0.5 ? th.tuft[0] : th.tuft[1];
     if (th.id === 'winter') b.box(0.1, h * 0.8, 0.1, c, x, h * 0.4, z).box(0.07, h * 0.55, 0.07, th.tuft[1], x + 0.1, h * 0.28, z + 0.04);
     else if (th.id === 'city') b.box(0.6, 0.03, 0.08, c, x, 0.015, z).box(0.08, 0.03, 0.4, c, x + 0.3, 0.015, z)
     else if (th.id === 'volcano') b.box(0.12, 0.05, 0.12, rand() < 0.5 ? 0xff6a1a : 0xffb43a, x, 0.03, z).box(0.3, 0.04, 0.08, 0x2b2630, x + 0.2, 0.02, z - 0.1);
@@ -298,31 +196,16 @@ function groundDetails(b, th) {
   if (th.id === 'desert') for (let i = ri(0, 2); i > 0; i--) b.box(0.6, 0.12, 0.34, th.ground[1], rnd(-COLS, COLS), 0.06, rnd(-0.3, 0.3));
 }
 
-/* arena dressing: a ring of runes on the floor, braziers and themed props on the rock terraces of the bowl, banners and posts at the gates */
-function arenaDecor(b, th, r, k, gate, eh) {
+/* arena dressing: a ring of runes on the floor, debris, and posts with banners at the entrance and exit gates. No walls: the invisible wall bounds it. */
+function arenaDecor(b, th, r, k, gate) {
   const A = th.arena, SIDES = [-1, 1];
-  b.box(COLS * 2 + 1, 0.5, 1, (k + r) % 2 ? A.a : A.b, 0, -0.25, 0);
+  b.box(80, 0.5, 1, (k + r) % 2 ? A.a : A.b, 0, -0.25, 0);
   [5.4, 2.7].forEach(R => { const dz = k - 7; if (Math.abs(dz) <= R) { const x = Math.sqrt(R * R - dz * dz), w = Math.abs(dz) > R - 0.6 ? 1.3 : 0.5; for (const s of x < 0.3 ? [1] : SIDES) b.box(w, 0.03, 0.62, A.accent, s * x, 0.015, 0); } });
   if (k === 7) b.box(1.2, 0.04, 1.2, A.accent, 0, 0.02, 0).box(0.5, 0.06, 0.5, A.flame[1], 0, 0.04, 0);
   if (k === 1) b.box(COLS * 2 + 1, 0.03, 0.34, A.flag, 0, 0.015, 0.1);
-  const inBowl = k > 1 && k < AH.ARENA_LEN - 2;
-  for (const s of SIDES) {
-    const H = eh[s > 0 ? 1 : 0];
-    if (!inBowl) continue;
-    if (k % 3 === 1) { const wx = s * (COLS + 2), y0 = H.get(2);   // brazier on the first terrace
-      b.box(0.14, 0.55, 0.14, 0x3a2f2a, wx, y0 + 0.28, 0).box(0.5, 0.14, 0.5, 0x3a2f2a, wx, y0 + 0.6, 0).box(0.28, 0.3, 0.28, A.flame[0], wx, y0 + 0.82, 0).box(0.16, 0.26, 0.16, A.flame[1], wx, y0 + 1.06, 0); }
-    const cc = ri(3, 5), px = s * (COLS + cc), y0 = H.get(cc), h = rnd(0.8, 2.5), prop = A.prop;
-    if (prop === 'ruin') { b.box(0.8, h, 0.8, A.pillar[0], px, y0 + h / 2, 0).box(1.0, 0.25, 1.0, A.pillar[1], px, y0 + h + 0.12, 0); if (rand() < 0.6) b.box(0.84, 0.18, 0.84, A.moss, px, y0 + h * 0.55, 0); }
-    else if (prop === 'ice') { b.box(0.7, h, 0.7, A.pillar[0], px, y0 + h / 2, 0).box(0.42, h * 0.55, 0.42, A.pillar[1], px + 0.05, y0 + h + h * 0.27, 0).box(0.18, 0.5, 0.18, 0xffffff, px + 0.05, y0 + h + h * 0.6, 0); }
-    else if (prop === 'obelisk') { b.box(0.9, 0.4, 0.9, A.pillar[1], px, y0 + 0.2, 0).box(0.66, h, 0.66, A.pillar[0], px, y0 + 0.4 + h / 2, 0).box(0.4, 0.5, 0.4, A.accent, px, y0 + 0.4 + h + 0.25, 0); }
-    else if (prop === 'pyramid') { b.box(1.8, 0.4, 1.8, A.pillar[0], px, y0 + 0.2, 0).box(1.3, 0.4, 1.3, A.pillar[1], px, y0 + 0.6, 0).box(0.8, 0.4, 0.8, A.pillar[0], px, y0 + 1.0, 0).box(0.4, 0.3, 0.4, A.accent, px, y0 + 1.35, 0); }
-    else if (prop === 'tower') { b.box(0.9, h + 1, 0.9, A.pillar[0], px, y0 + (h + 1) / 2, 0).box(0.94, 0.12, 0.94, A.accent, px, y0 + h * 0.6, 0).box(0.5, 0.3, 0.5, A.flame[0], px, y0 + h + 1.15, 0); }
-    else { b.box(0.8, h, 0.8, A.pillar[0], px, y0 + h / 2, 0).box(0.82, 0.1, 0.82, A.accent, px, y0 + h * 0.45, 0).box(0.6, 0.12, 0.6, A.flame[0], px, y0 + h + 0.06, 0); }
-  }
   for (let i = ri(2, 4); i > 0; i--) b.box(rnd(0.15, 0.4), 0.06, rnd(0.15, 0.3), mixHex(A.a, A.accent, 0.4), rnd(-COLS, COLS), 0.03, rnd(-0.35, 0.35));
   if (th.id === 'volcano') for (let i = ri(1, 3); i > 0; i--) b.box(rnd(0.5, 1.4), 0.03, 0.07, 0xff7a1a, rnd(-COLS, COLS), 0.02, rnd(-0.3, 0.3));
   if (th.id === 'winter') for (let i = ri(1, 3); i > 0; i--) b.box(0.4, 0.06, 0.4, 0xffffff, rnd(-COLS, COLS), 0.03, rnd(-0.3, 0.3));
-  // gate posts (set into the rock shoulder, which is kept flat there) with flags
   if (k === 0 || gate) for (const s of SIDES) {
     const px = s * (COLS + 0.8);
     b.box(0.6, 3.4, 0.6, A.pillar[0], px, 1.7, 0).box(0.8, 0.3, 0.8, A.pillar[1], px, 3.55, 0).box(0.3, 0.3, 0.3, A.flame[1], px, 3.9, 0)
@@ -340,46 +223,29 @@ function makeRow(r) {
   const addObj = (mesh, o) => { o.mesh = mesh; o.row = r; o.idx = row.objs.length; o.alive = !W.killed.has(r + ':' + o.idx); mesh.visible = o.alive; row.group.add(mesh); row.objs.push(o); };
   const place = (i, n, off, jit) => -WRAP + (((off + i * PER / n + rnd(-jit, jit)) % PER) + PER) % PER;
 
-  const k = (type === 'arena' || type === 'gate') ? r - W.arenaStart(r) : -1;
-  const ov = { pit: false, skip1: false, portal: false, flat: false, arena: 0 };
-  if (type === 'water' || type === 'lily' || type === 'conv') ov.pit = ov.skip1 = true;
-  else if (type === 'road' || type === 'roll' || type === 'rail') ov.portal = true;
-  else if (k >= 0) { ov.arena = smooth(0, 3, k) * smooth(0, 3, AH.ARENA_LEN - 1 - k); ov.flat = k === 0 || type === 'gate'; }
-  const pr = W.rows.get(r - 1), eh = [new Map(), new Map()];
-  const spots = terrain(b, th, r, ov, eh, pr && pr.eh);
-  row.eh = eh;
-  const EDGE = COLS + 1.5, halfW = ov.pit ? EDGE : COLS + 0.5, LW = halfW * 2;
-
   if (type === 'grass') {
-    b.box(LW, 0.5, 1, th.ground[r & 1], 0, -0.25, 0);
+    b.box(80, 0.5, 1, th.ground[r & 1], 0, -0.25, 0);
     groundDetails(b, th);
   } else if (type === 'road') {
-    b.box(LW, 0.5, 1, th.road, 0, -0.25, 0);
+    b.box(80, 0.5, 1, th.road, 0, -0.25, 0);
     const before = W.rows.get(r - 1);
-    if (before && before.type === 'road') for (let x = -6.6; x < 7; x += 2.4) b.box(1.2, 0.02, 0.14, th.marking, x, 0.01, 0.5);
+    if (before && before.type === 'road') for (let x = -40; x < 40; x += 2.4) b.box(1.2, 0.02, 0.14, th.marking, x, 0.01, 0.5);
   } else if (type === 'water' || type === 'lily') {
-    // the river runs out over the lip of the cliff: touch the far side and you are out of the map
-    const rip = th.id === 'volcano' ? 0xffb43a : mixHex(th.water, 0xffffff, 0.35), fall = th.id === 'volcano' ? 0xff8a2a : mixHex(th.water, 0xffffff, 0.5), fog = th.edge.fog;
-    b.box(LW, 0.4, 1, th.water, 0, -0.5, 0);
-    for (let i = ri(5, 9); i > 0; i--) b.box(rnd(0.5, 1.4), 0.02, 0.07, rip, rnd(-EDGE + 0.8, EDGE - 0.8), -0.29, rnd(-0.4, 0.4));
-    const seg = (PIT - 0.3) / 3;
-    for (const sx of [-1, 1]) {
-      b.box(0.45, 0.12, 1.02, 0xffffff, sx * (EDGE + 0.05), -0.27, 0);                                   // foam on the lip
-      for (let i = 0; i < 3; i++) b.box(0.34, seg, 1.0, mixHex(fall, fog, i * 0.28), sx * (EDGE + 0.17), -0.3 - seg * (i + 0.5), 0);   // the falling sheet, fading into the mist
-      b.box(0.1, PIT * 0.55, 0.5, 0xffffff, sx * (EDGE + 0.4), -PIT * 0.4, 0.1).box(1.6, 0.4, 1.3, 0xffffff, sx * (EDGE + 0.7), -PIT + 0.5, 0);
-    }
+    const rip = mixHex(th.water, 0xffffff, 0.35);
+    b.box(80, 0.4, 1, th.water, 0, -0.5, 0);
+    for (let i = ri(8, 14); i > 0; i--) b.box(rnd(0.5, 1.4), 0.02, 0.07, th.id === 'volcano' ? 0xffb43a : rip, rnd(-14, 14), -0.29, rnd(-0.4, 0.4));
   } else if (type === 'rail') {
-    b.box(LW, 0.4, 1, th.bed, 0, -0.2, 0);
-    for (let x = -7.2; x < 7.4; x += 0.8) b.box(0.22, 0.08, 0.9, th.tie, x, 0.04, 0);
-    b.box(LW, 0.1, 0.08, th.steel, 0, 0.12, 0.28).box(LW, 0.1, 0.08, th.steel, 0, 0.12, -0.28);
-    const lh = eh[0].get(1); b.box(0.14, 0.9, 0.14, 0x4a525c, -COLS - 1, lh + 0.45, 0.4);               // signal post on top of the tunnel mouth
+    b.box(80, 0.4, 1, th.bed, 0, -0.2, 0);
+    for (let x = -40; x < 40; x += 0.8) b.box(0.22, 0.08, 0.9, th.tie, x, 0.04, 0);
+    b.box(80, 0.1, 0.08, th.steel, 0, 0.12, 0.28).box(80, 0.1, 0.08, th.steel, 0, 0.12, -0.28);
+    b.box(0.14, 1.6, 0.14, 0x4a525c, -COLS - 1.6, 0.8, 0.4);
   } else if (type === 'conv') {
-    b.box(LW, 0.5, 1, th.conv.base, 0, -0.25, 0).box(LW, 0.2, 0.08, th.conv.edge, 0, 0.02, 0.46).box(LW, 0.2, 0.08, th.conv.edge, 0, 0.02, -0.46);
+    b.box(80, 0.5, 1, th.conv.base, 0, -0.25, 0).box(80, 0.2, 0.08, th.conv.edge, 0, 0.02, 0.46).box(80, 0.2, 0.08, th.conv.edge, 0, 0.02, -0.46);
   } else if (type === 'roll') {
-    b.box(LW, 0.5, 1, th.roll.ground, 0, -0.25, 0);
-    for (let i = 0; i < 10; i++) b.box(0.24, 0.1, 0.2, th.roll.speck, rnd(-COLS, COLS), 0.05, rnd(-0.35, 0.35));
+    b.box(80, 0.5, 1, th.roll.ground, 0, -0.25, 0);
+    for (let i = 0; i < 10; i++) b.box(0.24, 0.1, 0.2, th.roll.speck, rnd(-COLS - 3, COLS + 3), 0.05, rnd(-0.35, 0.35));
   } else if (type === 'arena' || type === 'gate') {
-    arenaDecor(b, th, r, k, type === 'gate', eh);
+    arenaDecor(b, th, r, r - W.arenaStart(r), type === 'gate');
   }
   const mesh = new T.Mesh(b.build(), VM);
   mesh.castShadow = false; mesh.receiveShadow = true;
@@ -387,28 +253,23 @@ function makeRow(r) {
   row.group.position.z = -r;
 
   if (type === 'grass') {
-    // some stretches of grass are a formation (a cluster of rocks and trees) with a guaranteed way round it
-    const dense = r > 2 && hash3(Math.floor(r / 3), 5, W.seedN + 77) < 0.2;
     for (let x = -COLS; x <= COLS; x++) {
       if (x === prev || x === pc) continue;
-      const p = r <= 2 ? 0 : dense ? 0.36 : 0.085, hit = rand() < p, rock = rand() < (dense ? 0.55 : 0.25);
+      const hit = rand() < (r <= 2 ? 0 : 0.085), rock = rand() < 0.25;
       if (hit && !W.removed.has(r + ':' + x)) addObstacle(row, x, rock, true, th);
     }
-  }
-  spots.forEach(sp => { if (rand() < sp.p * 0.35) addObstacle(row, sp.x, rand() < 0.25, false, th, sp.y); });
-  if (type === 'grass') { /* (lane obstacles above) */
   } else if (type === 'road') {
     const dir = rand() < 0.5 ? -1 : 1, sp = rnd(2.2, 4.2) * (1 + 0.5 * d), n = ri(4, 7), off = rnd(0, PER);
     for (let i = 0; i < n; i++) {
       const truck = rand() < 0.3, len = truck ? 2.6 : 1.5, x = place(i, n, off, 0.8);
       const bs = AH.BEASTS && AH.BEASTS[th.id], col = CAR_COLORS[ri(0, CAR_COLORS.length - 1)];
-      const m = new T.Mesh(bs ? buildBeast(truck ? bs.big : bs.small, dir) : buildCar(len, col, dir, truck), HVM); m.castShadow = true;
+      const m = new T.Mesh(bs ? buildBeast(truck ? bs.big : bs.small, dir) : buildCar(len, col, dir, truck), VM); m.castShadow = true;
       addObj(m, { x0: x, x: x, len: len, dir: dir, speed: sp, kind: 'car', hurts: true, carries: false });
     }
   } else if (type === 'roll') {
     const dir = rand() < 0.5 ? -1 : 1, sp = rnd(2.6, 5) * (1 + 0.4 * d), n = ri(4, 6), off = rnd(0, PER);
     for (let i = 0; i < n; i++) {
-      const s = rnd(0.9, 1.25), m = new T.Mesh(rollGeo(), HM(th.roll.ball)); m.scale.set(s, s, s); m.position.y = 0.58 * s; m.castShadow = true;
+      const s = rnd(0.9, 1.25), m = new T.Mesh(rollGeo(), AH.M(th.roll.ball)); m.scale.set(s, s, s); m.position.y = 0.58 * s; m.castShadow = true;
       addObj(m, { x0: place(i, n, off, 0.8), x: 0, len: 1.1 * s, dir: dir, speed: sp, kind: 'roll', hurts: true, carries: false, spin: s });
     }
   } else if (type === 'water') {
@@ -435,9 +296,9 @@ function makeRow(r) {
     row.objs.forEach(o => { o.alive = true; o.mesh.visible = true; });
   } else if (type === 'rail') {
     const dir = rand() < 0.5 ? -1 : 1, len = ri(8, 11), tm = rnd(4.2, 7.5);
-    const m = new T.Mesh(buildTrain(len, dir, pick([0x3b82f6, 0xe5484d, 0x2dd4bf, 0x9b5de5])), HVM); m.castShadow = true; m.visible = false;
+    const m = new T.Mesh(buildTrain(len, dir, pick([0x3b82f6, 0xe5484d, 0x2dd4bf, 0x9b5de5])), VM); m.castShadow = true; m.visible = false;
     row.group.add(m);
-    const lamp = new T.Mesh(AH.BOX, AH.M(0x552222)); lamp.scale.set(0.3, 0.3, 0.3); lamp.position.set(-COLS - 1, eh[0].get(1) + 1.05, 0.4);
+    const lamp = new T.Mesh(AH.BOX, AH.M(0x552222)); lamp.scale.set(0.3, 0.3, 0.3); lamp.position.set(-COLS - 1.6, 1.7, 0.4);
     row.group.add(lamp); row.lamp = lamp;
     row.train = { mesh: m, dir: dir, len: len, T: tm, warn: 1.3, speed: 30, off: rnd(0, tm), alive: !W.killed.has(r + ':-1'), row: r, idx: -1, kind: 'train' };
   } else if (type === 'gate') {
@@ -455,7 +316,6 @@ function removeRow(row) { scene.remove(row.group); }
 
 /* ---- public api ---- */
 W.reset = function (seed) {
-  W.seedN = seed ? Math.floor(AH.seeded(String(seed))() * 1e9) : Math.floor(Math.random() * 1e9);
   W.rows.forEach(removeRow); W.rows.clear();
   W.gen = -9; W.run = 'grass'; W.runLeft = 0; W.pathCol = 0; W.arenas = {}; W.killed = new Set(); W.removed = new Set();
   AH.setSeed(seed);
@@ -565,9 +425,6 @@ W.update = function (dt, fx, fz) {
     for (const o of row.objs) {
       if (!o.alive) continue;
       o.x = wrapX(o.x0 + o.dir * o.speed * t); o.mesh.position.x = o.x;
-      if (row.type === 'water') o.mesh.visible = Math.abs(o.x) - o.len / 2 < COLS + 1.9;
-      else if (row.type === 'conv') o.mesh.visible = Math.abs(o.x) + o.len / 2 < COLS + 1.6;
-      else o.mesh.visible = Math.abs(o.x) - o.len / 2 < COLS + 0.6;
       // a ball rolls clockwise (seen from +z) when it travels towards +x: rotation = -distance / radius, whichever way it goes. Using the travelled
       // distance (not the wrapped position) also keeps it from jumping when it wraps around.
       if (o.spin) o.mesh.rotation.z = (-(o.dir * o.speed * t) / (0.58 * o.spin)) % TAU;

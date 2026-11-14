@@ -24,7 +24,12 @@ Nav.hop = function (f, k, m, t, o) {
   else x = cont ? clamp(f.x, -COLS - 1, COLS + 1) : clamp(Math.round(f.x), -COLS, COLS);
   const lim = cont ? COLS + 1 : COLS;
   if (Math.abs(x) > lim + 0.001) return null;
-  if (!o.fly && row.blockers.has(Math.round(x))) return null;
+  const bx = Math.round(x), bl = row.blockers.get(bx);
+  if (bl && (!o.fly || bl.kind === 'fence')) return null;                     // arena gates are invisible walls even for flyers
+  if (m > 1 && dx === 0) for (let i = 1; i < m; i++) {                          // a leap cannot skip over a closed gate row either
+    const mid = W.get(f.row + (dz === -1 ? i : -i)), mb = mid && mid.blockers.get(bx);
+    if (mb && mb.kind === 'fence') return null;
+  }
   if (o.occ && o.occ(x, r2)) return null;
   if (o.block && o.block(x, -r2)) return null;
   if (o.veto && o.veto(row, x, t + dm)) return null;

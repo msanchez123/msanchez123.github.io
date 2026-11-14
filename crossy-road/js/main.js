@@ -13,7 +13,7 @@ function chaseDist(e) {
 }
 const slabMat = new T.MeshLambertMaterial({ color: 0xf2f9ff });
 const slab = new T.Mesh(AH.BOX, slabMat);
-slab.scale.set(COLS * 2 + 3, 1.2, 46); scene.add(slab);   // as wide as the course: the sides are terrain now, not more lane
+slab.scale.set(120, 1.2, 46); scene.add(slab);
 const boulders = [], bGeo = new T.IcosahedronGeometry(1, 0);
 function addBoulder(x, z0, r) {
   const m = new T.Mesh(bGeo, new T.MeshLambertMaterial({ color: 0xffffff }));
@@ -40,8 +40,8 @@ AH.chaseNow = function () {
   const hold = -(W.firstOpenArena() - 8);
   return cz < hold ? hold : cz;
 };
-for (let i = 0; i < 9; i++) addBoulder(-COLS - 1 + i * 2 + AH.prnd(-0.4, 0.4), AH.prnd(0, 1.2), AH.prnd(0.75, 1.3));
-for (let i = 0; i < 8; i++) addBoulder(AH.prnd(-COLS - 0.5, COLS + 0.5), AH.prnd(1.4, 6), AH.prnd(1, 1.9));
+for (let i = 0; i < 24; i++) addBoulder(-24 + i * 2 + AH.prnd(-0.4, 0.4), AH.prnd(0, 1.2), AH.prnd(0.75, 1.3));
+for (let i = 0; i < 22; i++) addBoulder(AH.prnd(-24, 24), AH.prnd(1.4, 6), AH.prnd(1, 1.9));
 
 /* ---- big on-screen shout (boss roars) ---- */
 let shoutT = 0;
@@ -266,14 +266,14 @@ function frame(now) {
   const A = W.firstOpenArena();
   if (!P.dead && P.row >= A && G.lastArena !== A) { G.lastArena = A; AH.emit('arena', A); }
 
-  slab.position.set(0, 0.1, G.chaseZ + 0.5 + 23);
+  slab.position.set(P.x, 0.1, G.chaseZ + 0.5 + 23);
   for (const b of boulders) {
     b.ph += dt * 6 * b.roll;
-    b.m.position.set(b.x, b.r * 0.78 + Math.abs(Math.sin(b.ph)) * 0.12, G.chaseZ + b.z0);
+    b.m.position.set(P.x * 0 + b.x + Math.round(P.x / 48) * 48, b.r * 0.78 + Math.abs(Math.sin(b.ph)) * 0.12, G.chaseZ + b.z0);
     b.m.rotation.x -= dt * 2.6 / b.r * b.roll;
   }
   snowT -= dt;
-  if (snowT <= 0 && !allDead && AH.chase) { snowT = 0.08; AH.burst(1, AH.prnd(-COLS, COLS), 1.2, G.chaseZ - 0.4, AH.chase.dust, 1.4, 3); }
+  if (snowT <= 0 && !allDead && AH.chase) { snowT = 0.08; AH.burst(1, P.x + AH.prnd(-12, 12), 1.2, G.chaseZ - 0.4, AH.chase.dust, 1.4, 3); }
   AH.updateParts(dt);
 
   // danger feedback

@@ -64,6 +64,11 @@ AH.chars.push({
       c.fire -= dt;
       if (c.fire <= 0) { c.fire = 0; p.burn = false; p.inv = false; }
     }
+    if (p.burn && !p.dead) {                       // anything that touches the flames is destroyed
+      const row = W.get(Math.round(-p.z)), now = AH.now();
+      if (row && (row.type === 'road' || row.type === 'roll')) { for (const o of row.objs) if (o.alive && o.hurts && Math.abs(W.objX(o, now) - p.x) < o.len / 2 + 0.9) AH.fx.kill(o, true); }
+      else if (row && row.type === 'rail' && row.train && row.train.alive) { const st = W.trainState(row, now); if (st.x !== null && Math.abs(st.x - p.x) < row.train.len / 2 + 0.9) AH.fx.kill(row.train, true); }
+    }
     if (p.burn && !c.fl) { c.fl = AH.fx.makeAura(); AH.pg.add(c.fl); }
     if (c.fl) { c.fl.visible = p.burn; if (p.burn) AH.fx.tickAura(c.fl, AH.now()); }
   }
