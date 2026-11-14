@@ -97,16 +97,64 @@ const padGeo = th => geo('pad' + th.id, () => { const p = th.pad; return new Bui
 const fenceGeo = th => geo('fence' + th.id, () => new Builder().box(0.9, 1.3, 0.3, th.fence[0], 0, 0.65, 0).box(0.96, 0.18, 0.34, th.fence[1], 0, 1.2, 0).box(0.96, 0.18, 0.34, th.fence[1], 0, 0.5, 0).build());
 const rollGeo = () => geo('roll', () => new T.IcosahedronGeometry(0.58, 0));
 
-function buildCar(len, color, dir, truck) {
-  const b = new Builder(), L = len, glass = 0xdff3fb;
-  b.box(L * 0.96, 0.18, 0.78, 0x2a2f36, 0, 0.18, 0);
-  if (!truck) {
-    b.box(L, 0.46, 0.82, color, 0, 0.5, 0).box(L * 0.5, 0.36, 0.74, glass, -dir * L * 0.06, 0.9, 0).box(L * 0.34, 0.06, 0.76, color, -dir * L * 0.06, 1.11, 0);
-  } else {
-    b.box(L - 1.05, 0.8, 0.86, 0xf1f5f9, -dir * 0.525, 0.62, 0).box(0.95, 0.62, 0.84, color, dir * (L / 2 - 0.48), 0.5, 0).box(0.12, 0.26, 0.7, glass, dir * (L / 2 - 0.02), 0.66, 0);
+/* ---- vehicles: a dozen different models, each rolled with its own colour, length and details. front = +x * dir. Returns { g, len }. ---- */
+const CAR_COLORS = [0xe5484d, 0x3b82f6, 0xf5c518, 0x9b5de5, 0x2dd4bf, 0xff7a59, 0xf1f5f9, 0x2f3640, 0x22a06b, 0xd2d6dc, 0x7a5c3b, 0x1d4ed8, 0xb91c1c];
+const CARGO_COLORS = [0xf1f5f9, 0xe5484d, 0x3b82f6, 0xf5c518, 0x22a06b, 0xff7a59, 0xd2d6dc];
+const GLASS = 0x8fd0ea, TIRE = 0x1b1d22, DARKM = 0x2a2f36;
+const VEH_LIGHT = [['sedan', 3.2], ['hatch', 2.6], ['suv', 2.2], ['pickup', 1.6], ['van', 1.6], ['sports', 1.0], ['taxi', 0.5]];
+const VEH_HEAVY = [['boxtruck', 3], ['flatbed', 2], ['bus', 1.4], ['tanker', 1.4]];
+function wpick(list, boost) { let t = 0; list.forEach(e => t += e[1] * (boost && boost[e[0]] || 1)); let x = rand() * t; for (const e of list) { x -= e[1] * (boost && boost[e[0]] || 1); if (x <= 0) return e[0]; } return list[0][0]; }
+function buildVehicle(th, heavy, dir) {
+  const style = wpick(heavy ? VEH_HEAVY : VEH_LIGHT, th.id === 'city' ? { taxi: 5, bus: 2 } : null);
+  const b = new Builder(), X = (w, h, d, c, x, y, z) => b.box(w, h, d, c, dir * x, y, z);
+  const col = style === 'taxi' ? 0xf5c518 : pick(CAR_COLORS), lite = mixHex(col, 0xffffff, 0.28), dk = mixHex(col, 0x000000, 0.25), snow = th.id === 'winter' && rand() < 0.65;
+  const wheels = (L, n) => { for (let k = 0; k < n; k++) { const xw = n === 2 ? (k ? -L * 0.3 : L * 0.3) : L * (0.34 - k * (0.68 / (n - 1))); X(0.3, 0.3, 0.1, TIRE, xw, 0.15, 0.4); X(0.3, 0.3, 0.1, TIRE, xw, 0.15, -0.4); } };
+  const lights = L => { X(0.05, 0.09, 0.6, 0xfff1a6, L / 2, 0.36, 0); X(0.05, 0.09, 0.6, 0xd7263d, -L / 2, 0.36, 0); };
+  let L;
+  if (style === 'sedan' || style === 'taxi') {
+    L = rnd(1.6, 1.95);
+    X(L, 0.3, 0.78, col, 0, 0.32, 0); X(L * 0.5, 0.26, 0.7, GLASS, -L * 0.05, 0.6, 0); X(L * 0.42, 0.05, 0.72, lite, -L * 0.05, 0.75, 0); X(L * 0.28, 0.02, 0.5, lite, L * 0.3, 0.48, 0);
+    if (style === 'taxi') { X(0.3, 0.1, 0.2, 0xfff7d1, -L * 0.05, 0.83, 0); X(L * 0.9, 0.05, 0.8, 0x1c1f26, 0, 0.42, 0); }
+    else if (snow) X(L * 0.4, 0.06, 0.7, 0xffffff, -L * 0.05, 0.79, 0);
+    lights(L); wheels(L, 2);
+  } else if (style === 'hatch') {
+    L = rnd(1.35, 1.6);
+    X(L, 0.3, 0.78, col, 0, 0.32, 0); X(L * 0.62, 0.3, 0.7, GLASS, -L * 0.1, 0.62, 0); X(L * 0.56, 0.05, 0.72, lite, -L * 0.1, 0.79, 0); X(0.06, 0.2, 0.5, dk, -L / 2, 0.58, 0);
+    if (snow) X(L * 0.5, 0.06, 0.7, 0xffffff, -L * 0.1, 0.83, 0);
+    lights(L); wheels(L, 2);
+  } else if (style === 'suv') {
+    L = rnd(1.8, 2.05);
+    X(L, 0.4, 0.82, col, 0, 0.38, 0); X(L * 0.64, 0.34, 0.74, GLASS, -L * 0.1, 0.78, 0); X(L * 0.62, 0.05, 0.76, lite, -L * 0.1, 0.97, 0); X(L * 0.5, 0.04, 0.58, DARKM, -L * 0.1, 1.01, 0); X(0.12, 0.3, 0.3, TIRE, -L / 2 - 0.06, 0.5, 0);
+    if (snow) X(L * 0.5, 0.06, 0.66, 0xffffff, -L * 0.1, 1.05, 0);
+    lights(L); wheels(L, 2);
+  } else if (style === 'sports') {
+    L = rnd(1.5, 1.75);
+    X(L, 0.22, 0.82, col, 0, 0.26, 0); X(L * 0.36, 0.18, 0.68, GLASS, -L * 0.06, 0.46, 0); X(L * 0.3, 0.04, 0.7, lite, -L * 0.06, 0.56, 0); X(L * 0.96, 0.015, 0.14, 0xffffff, 0, 0.378, 0); X(0.16, 0.04, 0.78, DARKM, -L / 2 + 0.05, 0.52, 0);
+    lights(L); wheels(L, 2);
+  } else if (style === 'pickup') {
+    L = rnd(2.0, 2.3);
+    X(L, 0.24, 0.8, col, 0, 0.3, 0); X(L * 0.3, 0.28, 0.72, GLASS, L * 0.12, 0.56, 0); X(L * 0.28, 0.05, 0.74, lite, L * 0.12, 0.72, 0);
+    X(L * 0.46, 0.16, 0.06, dk, -L * 0.26, 0.5, 0.37); X(L * 0.46, 0.16, 0.06, dk, -L * 0.26, 0.5, -0.37); X(0.06, 0.16, 0.74, dk, -L / 2 + 0.03, 0.5, 0);
+    if (rand() < 0.6) X(rnd(0.3, 0.5), rnd(0.2, 0.34), 0.5, pick(CARGO_COLORS), -L * 0.28, 0.56, 0);
+    lights(L); wheels(L, 2);
+  } else if (style === 'van') {
+    L = rnd(1.9, 2.2);
+    X(L, 0.52, 0.82, col, 0, 0.46, 0); X(0.08, 0.26, 0.7, GLASS, L / 2 + 0.005, 0.64, 0); X(L * 0.5, 0.16, 0.84, GLASS, L * 0.12, 0.7, 0); X(L, 0.05, 0.84, lite, 0, 0.74, 0); X(L * 0.9, 0.06, 0.84, pick(CARGO_COLORS), 0, 0.34, 0);
+    lights(L); wheels(L, 2);
+  } else if (style === 'bus') {
+    L = rnd(3.2, 3.7);
+    X(L, 0.7, 0.84, col, 0, 0.5, 0); X(L * 0.92, 0.22, 0.86, GLASS, 0, 0.68, 0); X(0.06, 0.3, 0.76, GLASS, L / 2 + 0.005, 0.6, 0); X(L * 0.98, 0.05, 0.8, lite, 0, 0.87, 0); X(0.7, 0.1, 0.5, 0xcfd6df, -L * 0.15, 0.95, 0); X(L, 0.08, 0.86, 0xffffff, 0, 0.34, 0);
+    lights(L); wheels(L, 3);
+  } else {                                                                      // boxtruck, flatbed, tanker: a cab pulling something
+    L = rnd(2.7, 3.3);
+    const cab = pick(CAR_COLORS), cx = L / 2 - 0.48;
+    X(0.95, 0.62, 0.84, cab, cx, 0.46, 0); X(0.08, 0.26, 0.7, GLASS, L / 2 - 0.0, 0.62, 0); X(0.9, 0.05, 0.86, mixHex(cab, 0xffffff, 0.3), cx, 0.8, 0); X(L * 0.96, 0.14, 0.7, DARKM, 0, 0.2, 0);
+    if (style === 'boxtruck') { const cg = pick(CARGO_COLORS); X(L - 1.1, 0.85, 0.88, cg, -0.55, 0.64, 0); X(L - 1.2, 0.2, 0.9, mixHex(cg, 0x000000, 0.22), -0.55, 0.62, 0); }
+    else if (style === 'flatbed') { X(L - 1.05, 0.08, 0.86, 0x8a6a45, -0.52, 0.34, 0); for (let k = 0, n = ri(2, 3); k < n; k++) X(rnd(0.45, 0.7), rnd(0.3, 0.5), 0.6, pick(CARGO_COLORS), -0.2 - k * 0.7 + rnd(-0.05, 0.05), 0.6, 0); }
+    else { X(L - 1.1, 0.62, 0.78, 0xcfd6df, -0.55, 0.66, 0); X(0.08, 0.64, 0.8, 0x555a63, -0.2, 0.66, 0); X(0.08, 0.64, 0.8, 0x555a63, -1.0, 0.66, 0); X(0.4, 0.08, 0.3, 0xe5484d, -0.6, 1.03, 0); }
+    X(0.05, 0.09, 0.6, 0xfff1a6, L / 2 + 0.03, 0.34, 0); X(0.05, 0.09, 0.6, 0xd7263d, -L / 2, 0.3, 0); wheels(L, 3);
   }
-  b.box(0.06, 0.12, 0.14, 0xfff1a6, dir * L / 2, 0.5, 0.26).box(0.06, 0.12, 0.14, 0xfff1a6, dir * L / 2, 0.5, -0.26);
-  return b.build();
+  return { g: b.build(), len: L };
 }
 /* a natural log: lumpy rounded trunk of several differently thick segments, bark strips, end rings, knots, a branch stub and a themed finish */
 /* directional current: flat streak quads in one cached geometry; the row slides it along the flow and wraps it every PERIOD so it never ends */
@@ -205,11 +253,9 @@ function buildBeast(style, dir) {
   return b.build();
 }
 const TAU = Math.PI * 2;
-const CAR_COLORS = [0xe5484d, 0x3b82f6, 0xf5c518, 0x9b5de5, 0x2dd4bf, 0xff7a59, 0xf1f5f9];
 
 /* ---- type selection ---- */
-const TYPES = [['grass', 0.2, 1, 2, 0], ['road', 0.24, 1, 3, 0], ['water', 0.18, 1, 2, 0], ['rail', 0.08, 1, 2, 12],
-  ['lily', 0.1, 1, 3, 6], ['conv', 0.08, 1, 2, 8], ['roll', 0.12, 1, 3, 4]];
+const TYPES = [['grass', 0.24, 1, 2, 0], ['road', 0.26, 1, 3, 0], ['water', 0.2, 1, 2, 0], ['rail', 0.08, 1, 2, 12], ['lily', 0.1, 1, 3, 6]];
 /* ---- pre-set structures ("chunks") ----
  * A chunk is a short authored sequence of lanes (a river crossing, a highway with a median, a grove maze...). Every chunk is a builder that rolls its own
  * numbers each time it is placed (lengths, directions, speeds, density, where the gaps are), so no two look alike. A builder returns one spec per lane:
@@ -220,35 +266,30 @@ const lanes = (type, n, f) => { const o = []; for (let i = 0; i < n; i++) o.push
 const calm = () => ({ type: 'grass', tp: rnd(0.04, 0.12) });
 const isWildTheme = th => !!(AH.BEASTS && AH.BEASTS[th.id]);
 /* wildlands: a vast stretch of open ground where creatures roam (see wild.js). Replaces the creature roads of the beast zones. */
-const WILD = { id: 'wildlands', min: 0, types: ['grass'], w: 3, build() { const tp = rnd(0.06, 0.12); return [].concat(lanes('grass', ri(6, 10), () => ({ wild: true, tp: tp })), [calm()]); } };
+const WILD = { id: 'wildlands', min: 0, types: ['grass'], w: 3, build() { const tp = rnd(0.06, 0.12); return [].concat(lanes('grass', ri(6, 10), () => ({ wild: true, tp: tp, bg: 'dense' })), [calm()]); } };
 const CHUNKS = [
   { id: 'river', min: 6, types: ['lily', 'water'], w: 1.2, build() {
     const d = flip(), sp = rnd(0.9, 1.15), a = ri(1, 2), c = ri(2, 3);
-    return [].concat(lanes('lily', a, () => ({ pad: rnd(0.3, 0.5) })), lanes('water', c, i => ({ dir: i % 2 ? -d : d, spd: sp * rnd(0.9, 1.15), n: ri(5, 7) })), [calm()]); } },
+    return [].concat(lanes('lily', a, () => ({ pad: rnd(0.3, 0.5), bg: 'cliffs' })), lanes('water', c, i => ({ dir: i % 2 ? -d : d, spd: sp * rnd(0.9, 1.15), n: ri(5, 7), bg: 'cliffs' })), [calm()]); } },
   { id: 'highway', min: 0, types: ['road'], w: 1.3, build() {
     const d = flip(), n1 = ri(2, 3), n2 = ri(1, 2), base = rnd(0.9, 1.25);
     return [].concat(lanes('road', n1, i => ({ dir: i % 2 ? -d : d, spd: base * (1 + i * 0.15), truck: rnd(0.15, 0.5) })), [{ type: 'grass', tp: rnd(0.1, 0.25) }],
       lanes('road', n2, i => ({ dir: i % 2 ? d : -d, spd: base * 1.25, truck: rnd(0.2, 0.5) })), [calm()]); } },
   { id: 'railyard', min: 12, types: ['rail', 'grass'], w: 0.9, build() {
     return [].concat(lanes('rail', 2, () => ({ dir: flip() })), [{ type: 'grass', tp: rnd(0.15, 0.3) }], lanes('rail', ri(1, 2), () => ({ dir: flip() })), [calm()]); } },
-  { id: 'conveyors', min: 8, types: ['conv'], w: 1, build() {
-    const d = flip(), n = ri(3, 4), sp = rnd(0.9, 1.3);
-    return [].concat(lanes('conv', n, i => ({ dir: i % 2 ? -d : d, spd: sp * rnd(0.85, 1.2) })), [calm()]); } },
   { id: 'maze', min: 0, types: ['grass'], w: 1.1, build() {
     const n = ri(4, 6), tp = rnd(0.2, 0.3); let st = flip();
-    return [].concat(lanes('grass', n, () => { if (rand() < 0.35) st = -st; return { tp: tp, rock: rnd(0.2, 0.6), step: rand() < 0.2 ? 0 : st }; }), [calm()]); } },
-  { id: 'alley', min: 4, types: ['roll', 'grass'], w: 1, build() {
-    const d = flip(), n = ri(3, 4), sp = rnd(0.9, 1.2);
+    return [].concat(lanes('grass', n, () => { if (rand() < 0.35) st = -st; return { tp: tp, rock: rnd(0.2, 0.6), step: rand() < 0.2 ? 0 : st, bg: 'dense' }; }), [calm()]); } },
+  { id: 'boulders', min: 4, types: ['roll', 'grass'], w: 0.9, build() {
+    const d = flip(), n = ri(3, 5), sp = rnd(0.9, 1.2);
     return [].concat(lanes('roll', n, i => ({ dir: i % 2 ? -d : d, spd: sp * rnd(0.9, 1.15), n: ri(4, 6) })), [calm()]); } },
   { id: 'stones', min: 6, types: ['lily'], w: 0.9, build() {
-    const pad = rnd(0.24, 0.36); return [].concat(lanes('lily', ri(4, 5), () => ({ pad: pad })), [calm()]); } },
+    const pad = rnd(0.24, 0.36); return [].concat(lanes('lily', ri(4, 5), () => ({ pad: pad, bg: 'cliffs' })), [calm()]); } },
   { id: 'crossroads', min: 12, types: ['road', 'rail'], w: 0.8, build() {
     const d = flip(); return [].concat(lanes('road', 2, i => ({ dir: i ? d : -d, spd: rnd(1, 1.3) })), lanes('rail', 1, () => ({ dir: flip() })), lanes('road', 2, i => ({ dir: i ? -d : d, spd: rnd(1, 1.3) })), [calm()]); } },
   { id: 'island', min: 6, types: ['water', 'grass'], w: 1, build() {
     const d = flip(), sp = rnd(0.9, 1.2);
-    return [].concat(lanes('water', ri(1, 2), i => ({ dir: i ? -d : d, spd: sp, n: ri(5, 7) })), [{ type: 'grass', tp: rnd(0.12, 0.25) }], lanes('water', ri(1, 2), i => ({ dir: i ? d : -d, spd: sp * 1.1, n: ri(5, 7) })), [calm()]); } },
-  { id: 'sprint', min: 8, types: ['road', 'roll'], w: 0.8, build() {
-    const d = flip(); return [].concat(lanes('roll', 1, () => ({ dir: d, spd: rnd(1.1, 1.4) })), lanes('road', 2, i => ({ dir: i ? d : -d, spd: rnd(1, 1.35), truck: 0.4 })), lanes('roll', 1, () => ({ dir: -d, spd: rnd(1.1, 1.4) })), [calm()]); } }
+    return [].concat(lanes('water', ri(1, 2), i => ({ dir: i ? -d : d, spd: sp, n: ri(5, 7) })), [{ type: 'grass', tp: rnd(0.12, 0.25) }], lanes('water', ri(1, 2), i => ({ dir: i ? d : -d, spd: sp * 1.1, n: ri(5, 7) })), [calm()]); } }
 ];
 function tryChunk(r) {
   if (rand() > 0.68) return false;
@@ -263,7 +304,7 @@ function tryChunk(r) {
   W.queue = specs; W.lastChunk = ch.id;
   return true;
 }
-const CHUNK_ONLY = { roll: 1, rail: 1, conv: 1 };          // these only ever appear inside authored structures; scattered randomly they look odd
+const CHUNK_ONLY = { rail: 1 };          // these only ever appear inside authored structures; scattered randomly they look odd
 function pickType(r) {
   const A = W.arenaStart(r);
   W.spec = null;
@@ -289,7 +330,7 @@ function pickType(r) {
 
 /* ---- background: everything beyond the playable lanes is decoration, with a few blocks of height difference up and down ---- */
 const hash3 = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 1597334677) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-const HILL = [-0.5, 0, 0, 0.5, 1, 1, 1.5, 2];
+const HILL = [0, 0, 0.5, 0.5, 1, 1, 1.5, 2];
 const BG0 = COLS + 2.6, SEG = 4.2, NSEG = 3;
 function sideH(r, side, seg, type) {
   let h = HILL[Math.floor(hash3(r >> 1, side * 9 + seg, 17) * HILL.length)];
@@ -297,20 +338,30 @@ function sideH(r, side, seg, type) {
   if (type === 'gate') h = 2.5 + Math.round(hash3(r, side * 9 + seg, 5) * 3) / 2;
   return h;
 }
-/* ground with terrain on both sides. grass-like rows get hills and dips; other lane types get raised blocks only (their lane runs on to the edge) */
-function groundBase(b, th, r, type, col, hillCol, hillsOnly) {
-  const full = type === 'grass' || type === 'arena' || type === 'gate';
-  if (hillsOnly) col = th.ground[r & 1];
-  else if (full) b.box(BG0 * 2, 0.5, 1, col, 0, -0.25, 0);
-  for (const side of [-1, 1]) {
-    let last = 0;
-    for (let i = 0; i < NSEG; i++) {
-      const h = sideH(r, side, i, type), x = side * (BG0 + SEG * (i + 0.5)); last = h;
-      const c = mixHex(hillCol || col, th.rock[2], Math.min(0.5, Math.abs(h) * 0.22));
-      if (full) b.box(SEG, h + 1, 1, c, x, (h - 1) / 2, 0);
-      else if (h > 0) b.box(SEG, h, 1, c, x, h / 2, 0);
-    }
-    if (full) b.box(40 - (BG0 + SEG * NSEG), last + 1, 1, mixHex(hillCol || col, th.rock[2], 0.2), side * ((40 + BG0 + SEG * NSEG) / 2), (last - 1) / 2, 0);
+/* triangular hills (prisms) on both sides of the lane strip. Height rows share plateaus of two lanes so neighbouring ridges line up into mountain ranges. */
+const hillW = SEG * 1.6, hillCx = (side, i) => side * (BG0 - 0.3 + hillW / 2 + i * SEG);
+const hillPeak = (r, side, i, type, S) => { const h = sideH(r, side, i, type); return h <= 0 ? 0 : h * (S && S.bg === 'cliffs' ? 2 : 1.3); };
+function hillY(r, side, x, type, S) { let y = 0; for (let i = 0; i < NSEG; i++) { const h = hillPeak(r, side, i, type, S); if (h > 0) y = Math.max(y, h * (1 - Math.abs(x - hillCx(side, i)) / (hillW / 2))); } return y; }
+function groundBase(b, th, r, type, col, hillCol, hillsOnly, S) {
+  const base = hillsOnly ? th.ground[r & 1] : (hillCol || col);
+  if (!hillsOnly) b.box(80, 0.5, 1, col, 0, -0.25, 0);
+  const cl = S && S.bg === 'cliffs';
+  for (const side of [-1, 1]) for (let i = 0; i < NSEG; i++) {
+    const h = hillPeak(r, side, i, type, S); if (h <= 0) continue;
+    b.prism(hillW, h, 1, mixHex(base, th.rock[2], Math.min(0.7, 0.16 + h * 0.1 + (cl ? 0.3 : 0))), hillCx(side, i), 0, 0);
+  }
+}
+/* the edge of a road, rail or boulder lane: a rock mountain with a tunnel mouth where the traffic goes in and out, and (roads) guard rails leading up to it */
+function tunnelSides(b, th, r, type) {
+  const stone = th.rock[1], rock = mixHex(th.ground[r & 1], th.rock[2], 0.55), openH = type === 'road' ? 1.3 : 1.7;
+  for (const s of [-1, 1]) {
+    const H = 3.6 + hash3(r, s * 3, 9) * 1.8, H2 = 1.2 + hash3(r, s * 5, 11) * 2.4;
+    b.box(2.4, openH + 1.0, 1, rock, s * (BG0 + 0.1 + 1.25), (openH + 1.0) / 2, 0);                           // the cliff face the mouth is cut into
+    b.box(1.2, openH, 0.84, 0x14161b, s * (BG0 + 0.05 + 0.6), openH / 2, 0);                                  // the dark mouth, flush with where the clip plane ends
+    b.box(1.35, 0.3, 0.98, stone, s * (BG0 + 0.03 + 0.67), openH + 0.15, 0);                                  // lintel
+    b.prism(9.2, H, 1, mixHex(rock, th.rock[2], 0.15), s * (BG0 + 0.1 + 4.6), 0, 0);                          // the mountain behind
+    b.prism(10, H2, 1, mixHex(rock, th.ground[r & 1], 0.3), s * (BG0 + 0.1 + 13.5), 0, 0);
+    if (type === 'road') for (const z of [-0.46, 0.46]) b.box(1.9, 0.08, 0.05, 0xcfd6df, s * (BG0 - 1.0), 0.34, z).box(0.07, 0.4, 0.07, 0x7a828c, s * (BG0 - 0.1), 0.2, z);
   }
 }
 /* scenery props in the unreachable background. A cheap few boxes each, varied in height, themed per environment. */
@@ -323,12 +374,12 @@ function bgProp(b, th, x, y, z, big) {
   else if (id === 'temple') { if (rand() < 0.5) b.box(0.8, h * 0.8, 0.8, 0xb5ae8a, x, y + h * 0.4, z).box(1.1, 0.25, 1.1, 0x9a9170, x, y + h * 0.82, z).box(0.14, h * 0.7, 0.84, 0x4f8f3f, x + 0.3, y + h * 0.35, z); else b.box(w * 2, 0.5, w * 2, 0x9a9170, x, y + 0.25, z).box(w * 1.5, 0.5, w * 1.5, 0xb5ae8a, x, y + 0.75, z).box(w, 0.5, w, 0xc4bd96, x, y + 1.25, z); }
   else { b.box(0.4, h * 0.45, 0.4, t.trunk, x, y + h * 0.22, z).box(w * 1.9, h * 0.34, w * 1.9, t.a[0], x, y + h * 0.55, z).box(w * 1.3, h * 0.3, w * 1.3, t.b[0], x, y + h * 0.82, z).box(w * 0.7, h * 0.2, w * 0.7, t.c, x, y + h * 1.0, z); }
 }
-function bgDecor(b, th, r, type) {
-  if (type === 'water' || type === 'lily') return;
-  for (const side of [-1, 1]) for (let i = 0, n = rand() < (type === 'arena' || type === 'gate' ? 0.8 : 0.55) ? 1 : 0; i < n; i++) {
-    const off = rnd(0, SEG * NSEG - 1), seg = Math.min(NSEG - 1, Math.floor(off / SEG)), h = sideH(r, side, seg, type);
-    if (type !== 'grass' && type !== 'arena' && type !== 'gate' && h <= 0) { bgProp(b, th, side * (BG0 + off), 0, rnd(-0.3, 0.3), rand() < 0.25); continue; }
-    bgProp(b, th, side * (BG0 + off), Math.max(0, h), rnd(-0.3, 0.3), rand() < 0.25);
+function bgDecor(b, th, r, type, S) {
+  if (type === 'road' || type === 'rail' || type === 'roll') return;           // those edges are mountains with tunnels (tunnelSides)
+  const dense = S && S.bg === 'dense';
+  for (const side of [-1, 1]) for (let i = 0, n = dense ? 2 : rand() < (type === 'arena' || type === 'gate' ? 0.8 : 0.55) ? 1 : 0; i < n; i++) {
+    const x = side * (BG0 + rnd(0.8, SEG * NSEG - 1));
+    bgProp(b, th, x, hillY(r, side, x, type, S), rnd(-0.3, 0.3), dense || rand() < 0.25);
   }
 }
 
@@ -473,29 +524,34 @@ function makeRow(r) {
   const place = (i, n, off, jit) => -WRAP + (((off + i * PER / n + rnd(-jit, jit)) % PER) + PER) % PER;
 
   if (type === 'grass') {
-    groundBase(b, th, r, 'grass', th.ground[r & 1]);
+    groundBase(b, th, r, 'grass', th.ground[r & 1], null, false, S);
     groundDetails(b, th);
   } else if (type === 'road') {
     b.box(80, 0.5, 1, th.road, 0, -0.25, 0);
     const before = W.rows.get(r - 1);
-    if (before && before.type === 'road') for (let x = -40; x < 40; x += 2.4) b.box(1.2, 0.02, 0.14, th.marking, x, 0.01, 0.5);
+    if (before && before.type === 'road') for (let x = -BG0; x < BG0; x += 2.4) b.box(1.2, 0.02, 0.14, th.marking, x, 0.01, 0.5);
+    for (let i = ri(0, 2); i > 0; i--) {                                       // potholes (a pale broken rim, a dark hole) and a crack or two
+      const x = rnd(-BG0 + 1, BG0 - 1), z = rnd(-0.18, 0.18), pw = rnd(0.45, 0.8), pd = rnd(0.3, 0.5);
+      b.box(pw * 1.35, 0.012, pd * 1.4, mixHex(th.road, 0x000000, 0.18), x, 0.006, z).box(pw, 0.02, pd, 0x0d0e11, x + rnd(-0.05, 0.05), 0.011, z);
+    }
+    for (let i = ri(0, 2); i > 0; i--) b.box(rnd(0.7, 1.6), 0.014, 0.03, mixHex(th.road, 0x000000, 0.35), rnd(-BG0 + 1, BG0 - 1), 0.008, rnd(-0.3, 0.3));
   } else if (type === 'water' || type === 'lily') {
     b.box(80, 0.4, 1, th.water, 0, -0.5, 0);
+    for (const sd of [-1, 1]) b.box(40 - BG0, 0.55, 1, th.ground[r & 1], sd * (BG0 + (40 - BG0) / 2), -0.275, 0);      // solid banks: logs vanish into them
   } else if (type === 'rail') {
     b.box(80, 0.4, 1, th.bed, 0, -0.2, 0);
-    for (let x = -40; x < 40; x += 0.8) b.box(0.22, 0.08, 0.9, th.tie, x, 0.04, 0);
+    for (let x = -BG0; x < BG0; x += 0.8) b.box(0.22, 0.08, 0.9, th.tie, x, 0.04, 0);
     b.box(80, 0.1, 0.08, th.steel, 0, 0.12, 0.28).box(80, 0.1, 0.08, th.steel, 0, 0.12, -0.28);
     b.box(0.14, 1.6, 0.14, 0x4a525c, -COLS - 1.6, 0.8, 0.4);
-  } else if (type === 'conv') {
-    b.box(80, 0.5, 1, th.conv.base, 0, -0.25, 0).box(80, 0.2, 0.08, th.conv.edge, 0, 0.02, 0.46).box(80, 0.2, 0.08, th.conv.edge, 0, 0.02, -0.46);
   } else if (type === 'roll') {
     b.box(80, 0.5, 1, th.roll.ground, 0, -0.25, 0);
     for (let i = 0; i < 10; i++) b.box(0.24, 0.1, 0.2, th.roll.speck, rnd(-COLS - 3, COLS + 3), 0.05, rnd(-0.35, 0.35));
   } else if (type === 'arena' || type === 'gate') {
     arenaDecor(b, th, r, r - W.arenaStart(r), type === 'gate');
   }
-  if (type !== 'grass' && type !== 'arena' && type !== 'gate' && type !== 'water' && type !== 'lily') groundBase(b, th, r, type, 0, null, true);
-  bgDecor(b, th, r, type);
+  if (type === 'road' || type === 'rail' || type === 'roll') tunnelSides(b, th, r, type);
+  else if (type === 'water' || type === 'lily') groundBase(b, th, r, type, 0, null, true, S);
+  bgDecor(b, th, r, type, S);
   const mesh = new T.Mesh(b.build(), VM);
   mesh.castShadow = false; mesh.receiveShadow = true;
   row.group.add(mesh);
@@ -511,21 +567,20 @@ function makeRow(r) {
   } else if (type === 'road') {
     const dir = S.dir || flip(), sp = rnd(2.2, 4.2) * (S.spd || 1) * (1 + 0.5 * d), n = S.n || ri(4, 7), off = rnd(0, PER), tr = S.truck !== undefined ? S.truck : 0.3;
     for (let i = 0; i < n; i++) {
-      const truck = rand() < tr, len = truck ? 2.6 : 1.5, x = place(i, n, off, 0.8);
-      const bs = AH.BEASTS && AH.BEASTS[th.id], col = CAR_COLORS[ri(0, CAR_COLORS.length - 1)];
-      const m = new T.Mesh(bs ? buildBeast(truck ? bs.big : bs.small, dir) : buildCar(len, col, dir, truck), VM); m.castShadow = true;
-      addObj(m, { x0: x, x: x, len: len, dir: dir, speed: sp, kind: 'car', hurts: true, carries: false });
+      const v = buildVehicle(th, rand() < tr, dir), x = place(i, n, off, 0.8);
+      const m = new T.Mesh(v.g, AH.VMC); m.castShadow = true;
+      addObj(m, { x0: x, x: x, len: v.len, dir: dir, speed: sp, kind: 'car', hurts: true, carries: false });
     }
   } else if (type === 'roll') {
     const dir = S.dir || flip(), sp = rnd(2.6, 5) * (S.spd || 1) * (1 + 0.4 * d), n = S.n || ri(4, 6), off = rnd(0, PER);
     for (let i = 0; i < n; i++) {
-      const s = rnd(0.9, 1.25), m = new T.Mesh(rollGeo(), AH.M(th.roll.ball)); m.scale.set(s, s, s); m.position.y = 0.58 * s; m.castShadow = true;
+      const s = rnd(0.9, 1.25), m = new T.Mesh(rollGeo(), AH.MC(th.roll.ball)); m.scale.set(s, s, s); m.position.y = 0.58 * s; m.castShadow = true;
       addObj(m, { x0: place(i, n, off, 0.8), x: 0, len: 1.1 * s, dir: dir, speed: sp, kind: 'roll', hurts: true, carries: false, spin: s });
     }
   } else if (type === 'water') {
     const dir = S.dir || flip(), sp = rnd(1.1, 2.0) * (S.spd || 1) * (1 + 0.3 * d), n = S.n || ri(5, 7), off = rnd(0, PER);
     for (let i = 0; i < n; i++) {
-      const len = rnd(2, 3.4), m = new T.Mesh(buildLog(len, th), VM); m.castShadow = true;
+      const len = rnd(2, 3.4), m = new T.Mesh(buildLog(len, th), AH.VMC); m.castShadow = true;
       addObj(m, { x0: place(i, n, off, 0.6), x: 0, len: len, dir: dir, speed: sp, kind: 'log', hurts: false, carries: true });
     }
     addFlow(row, th, dir, sp);
@@ -537,17 +592,9 @@ function makeRow(r) {
         row.group.add(m); row.pads.set(x, m);
       }
     }
-  } else if (type === 'conv') {
-    const dir = S.dir || flip(), sp = rnd(1.3, 2.3) * (S.spd || 1);
-    row.carry = dir * sp;
-    for (let i = 0; i < 16; i++) {
-      const m = new T.Mesh(AH.BOX, AH.M(th.conv.belt)); m.scale.set(1.2, 0.04, 0.7); m.position.y = 0.03;
-      addObj(m, { x0: -WRAP + i * PER / 16, x: 0, len: 1.2, dir: dir, speed: sp, kind: 'deco', hurts: false, carries: false });
-    }
-    row.objs.forEach(o => { o.alive = true; o.mesh.visible = true; });
   } else if (type === 'rail') {
     const dir = S.dir || flip(), len = ri(8, 11), tm = rnd(4.2, 7.5);
-    const m = new T.Mesh(buildTrain(len, dir, pick([0x3b82f6, 0xe5484d, 0x2dd4bf, 0x9b5de5])), VM); m.castShadow = true; m.visible = false;
+    const m = new T.Mesh(buildTrain(len, dir, pick([0x3b82f6, 0xe5484d, 0x2dd4bf, 0x9b5de5])), AH.VMC); m.castShadow = true; m.visible = false;
     row.group.add(m);
     const lamp = new T.Mesh(AH.BOX, AH.M(0x552222)); lamp.scale.set(0.3, 0.3, 0.3); lamp.position.set(-COLS - 1.6, 1.7, 0.4);
     row.group.add(lamp); row.lamp = lamp;
@@ -692,6 +739,7 @@ W.update = function (dt, fx, fz) {
       o.x = wrapX(o.x0 + o.dir * o.speed * t); o.mesh.position.x = o.x;
       // a ball rolls clockwise (seen from +z) when it travels towards +x: rotation = -distance / radius, whichever way it goes. Using the travelled
       // distance (not the wrapped position) also keeps it from jumping when it wraps around.
+      o.mesh.castShadow = Math.abs(o.x) < AH.BGX + 1;
       if (o.spin) o.mesh.rotation.z = (-(o.dir * o.speed * t) / (0.58 * o.spin)) % TAU;
     }
     if (row.train) {

@@ -86,6 +86,16 @@ Builder.prototype.box = function (w, h, d, color, x, y, z) {
   }
   return this;
 };
+/* a triangular prism: the cross-section is a triangle in x/y (base w wide, apex h high), extruded d deep along z. Used for hills and mountains. */
+Builder.prototype.prism = function (w, h, d, color, x, y, z) {
+  const col = new T.Color(color), hw = w / 2, hd = d / 2, nl = Math.hypot(h, hw), nx = h / nl, ny = hw / nl;
+  const Lf = [x - hw, y, z + hd], Rf = [x + hw, y, z + hd], Tf = [x, y + h, z + hd], Lb = [x - hw, y, z - hd], Rb = [x + hw, y, z - hd], Tb = [x, y + h, z - hd];
+  const tri = (a, b2, c2, n) => [a, b2, c2].forEach(v => { this.p.push(v[0], v[1], v[2]); this.n.push(n[0], n[1], n[2]); this.c.push(col.r, col.g, col.b); });
+  tri(Lf, Rf, Tf, [0, 0, 1]); tri(Rb, Lb, Tb, [0, 0, -1]);
+  tri(Rf, Rb, Tb, [nx, ny, 0]); tri(Rf, Tb, Tf, [nx, ny, 0]);
+  tri(Lb, Lf, Tb, [-nx, ny, 0]); tri(Lf, Tf, Tb, [-nx, ny, 0]);
+  return this;
+};
 Builder.prototype.build = function () {
   const g = new T.BufferGeometry();
   g.setAttribute('position', new T.Float32BufferAttribute(this.p, 3));
@@ -110,6 +120,14 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = T.PCFSoftShadowMap;
 AH.$('gl').appendChild(renderer.domElement);
+/* vehicles, boulders, logs and trains slide into tunnels and banks at the edge of the playable strip: a clip plane on each side hides whatever is past it,
+ * so nothing ever drives through a hill. BGX is where the tunnel mouths and banks start. */
+renderer.localClippingEnabled = true;
+AH.BGX = 9.65;
+AH.CLIP = [new T.Plane(new T.Vector3(1, 0, 0), AH.BGX), new T.Plane(new T.Vector3(-1, 0, 0), AH.BGX)];
+AH.VMC = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: AH.CLIP });
+const clipFlat = {};
+AH.MC = col => clipFlat[col] || (clipFlat[col] = new T.MeshLambertMaterial({ color: col, clippingPlanes: AH.CLIP }));
 const scene = AH.scene = new T.Scene();
 const camera = AH.camera = new T.OrthographicCamera(-5, 5, 5, -5, 0.1, 160);
 const CAM_OFF = new T.Vector3(4.5, 11, 9);
