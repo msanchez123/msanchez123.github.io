@@ -4,44 +4,9 @@
 const AH = window.AH, T = AH.T, W = AH.world, G = AH.G, P = AH.P, PL = AH.player, NET = AH.net, $ = AH.$, COLS = AH.COLS, clamp = AH.clamp;
 const scene = AH.scene, B = AH.boss;
 
-/* ---- the wave: one shared wall for the whole room, driven by the shared clock; what it is made of follows the zone it is crossing ---- */
-function chaseDist(e) {
-  const k = Math.min(e, 100);
-  let d = 1.5 * (0.5 * k + 0.004 * k * k);
-  if (e > 100) d += 1.5 * 1.3 * (e - 100);
-  return d;
-}
-const slabMat = new T.MeshLambertMaterial({ color: 0xf2f9ff });
-const slab = new T.Mesh(AH.BOX, slabMat);
-slab.scale.set(120, 1.2, 46); scene.add(slab);
-const boulders = [], bGeo = new T.IcosahedronGeometry(1, 0);
-function addBoulder(x, z0, r) {
-  const m = new T.Mesh(bGeo, new T.MeshLambertMaterial({ color: 0xffffff }));
-  m.scale.set(r, r, r); scene.add(m);
-  boulders.push({ m: m, x: x, z0: z0, r: r, ph: Math.random() * 6, roll: AH.prnd(0.8, 1.3), ci: Math.floor(Math.random() * 4) });
-}
-let chaseId = '';
+/* ---- no chasing wave any more: nothing pushes the player forward, they can take all the time they want ---- */
 AH.chase = null;
-function styleChaser(th) {
-  const c = th.chase;
-  if (c.id === chaseId) return;
-  chaseId = c.id; AH.chase = c;
-  slabMat.color.setHex(c.slab); slabMat.emissive.setHex(c.glow || 0); slabMat.emissiveIntensity = c.glow ? 0.5 : 0;
-  boulders.forEach(b => {
-    const k = b.ci % c.rocks.length;
-    b.m.material.color.setHex(c.rocks[k]);
-    b.m.material.emissive.setHex(c.glow && k % 2 === 0 ? c.glow : 0); b.m.material.emissiveIntensity = 0.6;
-  });
-  $('avl').textContent = c.label;
-}
-/* where the wave's front is right now (a pure function of the shared clock plus the hold-back; does not mutate anything) */
-AH.chaseNow = function () {
-  let cz = 6.5 - chaseDist(Math.max(0, AH.now() - G.rs)) + G.stall;
-  const hold = -(W.firstOpenArena() - 8);
-  return cz < hold ? hold : cz;
-};
-for (let i = 0; i < 24; i++) addBoulder(-24 + i * 2 + AH.prnd(-0.4, 0.4), AH.prnd(0, 1.2), AH.prnd(0.75, 1.3));
-for (let i = 0; i < 22; i++) addBoulder(AH.prnd(-24, 24), AH.prnd(1.4, 6), AH.prnd(1, 1.9));
+AH.chaseNow = () => -1e9;
 
 /* ---- big on-screen shout (boss roars) ---- */
 let shoutT = 0;
@@ -82,7 +47,7 @@ AH.spawnLate = function () {
   const A = W.firstOpenArena();
   let minRow = Infinity;
   AH.ghosts.forEach(g => { if (!g.dead && !g.first) minRow = Math.min(minRow, Math.round(-g.tz)); });
-  let row = Math.max(Math.ceil(-AH.chaseNow() + 8), isFinite(minRow) ? minRow : 0, 0);
+  let row = Math.max(isFinite(minRow) ? minRow : 0, 0);
   if (row >= A) row = A + 2;
   const limit = row < A ? A - 1 : row + 12;
   W.ensure(row + 40);
@@ -171,7 +136,7 @@ function initPicker() {
       const sp = document.createElement('span'); sp.textContent = c.name; b.appendChild(sp);
       b.addEventListener('click', function () {
         AH.audio(); PL.setChar(i); AH.beep(620, 0.07, 'square', 0.04, 200);
-        if (G.state === 'ready') { G.cardOn = true; AH.resetWorld(); }
+        if (G.state === 'ready') { G.cardOn = true; $('start').hidden = false; $('hint').hidden = true; }   // the course stays exactly as it is; only the hopper changes
         paintPicker();
       });
       box.appendChild(b);
@@ -245,16 +210,7 @@ function frame(now) {
   NET.tick(dt, now);
   if (P.holding && !P.dead && !P.jumping) { /* holdT advances inside PL.update */ }
 
-  // the shared wave, held back while a checkpoint boss is unbeaten. Its front is a pure function of the shared clock plus the hold-back.
   const allDead = AH.everyoneDead();
-  styleChaser(AH.themeAt(Math.max(0, Math.round(-G.chaseZ))));
-  if (G.rs > 0 && !(allDead && !(P.kind === 'snow' && G.deadT < 1.2))) {
-    let cz = 6.5 - chaseDist(Math.max(0, AH.now() - G.rs)) + G.stall;
-    const hold = -(W.firstOpenArena() - 8);
-    if (cz < hold) { G.stall += hold - cz; cz = hold; }
-    G.chaseZ = cz;
-  }
-  if (G.rs > 0 && !P.dead && G.state !== 'ready' && G.chaseZ - P.z < 1.0) PL.hurt('snow');
 
   // someone arriving while a round is running gets placed in as soon as the host's snapshot (or a short timeout) is in
   if (G.state === 'ready' && G.rs > 0 && !G.spawned) {
@@ -267,23 +223,7 @@ function frame(now) {
   const A = W.firstOpenArena();
   if (!P.dead && P.row >= A && G.lastArena !== A) { G.lastArena = A; AH.emit('arena', A); }
 
-  slab.position.set(P.x, 0.1, G.chaseZ + 0.5 + 23);
-  for (const b of boulders) {
-    b.ph += dt * 6 * b.roll;
-    b.m.position.set(P.x * 0 + b.x + Math.round(P.x / 48) * 48, b.r * 0.78 + Math.abs(Math.sin(b.ph)) * 0.12, G.chaseZ + b.z0);
-    b.m.rotation.x -= dt * 2.6 / b.r * b.roll;
-  }
-  snowT -= dt;
-  if (snowT <= 0 && !allDead && AH.chase) { snowT = 0.08; AH.burst(1, P.x + AH.prnd(-12, 12), 1.2, G.chaseZ - 0.4, AH.chase.dust, 1.4, 3); }
   AH.updateParts(dt);
-
-  // danger feedback
-  const gap = G.chaseZ - P.z, danger = (G.rs > 0 && !P.dead) ? clamp((6 - gap) / 5, 0, 1) : 0;
-  $('warn').style.opacity = (danger * 0.8).toFixed(2);
-  const fill = $('fill');
-  fill.style.width = (G.rs <= 0 ? 0 : (1 - clamp((gap - 1) / 9.5, 0, 1)) * 100).toFixed(1) + '%';
-  fill.style.backgroundColor = danger > 0.35 ? '#e5484d' : '#ffd23f';
-  if (danger > 0.6 && !P.dead) AH.cam.shake = Math.max(AH.cam.shake, (3 - gap) * 0.05);
 
   // camera: independent per client. Own fox while alive, otherwise whoever is furthest ahead.
   let tx = P.x, tz = P.z;
@@ -292,7 +232,7 @@ function frame(now) {
     AH.ghosts.forEach(g => { if (!g.dead && !g.first && (!best || g.g.position.z < best.g.position.z)) best = g; });
     if (best) { tx = best.g.position.x; tz = best.g.position.z; }
   }
-  AH.cam.tx = tx; AH.cam.tz = tz - 2.5;
+  AH.cam.tx = tx; AH.cam.tz = tz - 2.5; AH.cam.ty = P.dead ? AH.cam.ty : P.baseY * 0.85;
   AH.cam.update(dt);
   AH.skyTo(Math.round(-AH.cam.focus.z) + 3, dt);
   updateAim();

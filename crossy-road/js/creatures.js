@@ -1,5 +1,5 @@
-/* creatures.js: the boss roster. Every checkpoint arena draws its guardian from a pool that fits the zone it closes (a mushroom lord in the forest,
- * a frost mammoth on the peaks, a demolition mech in the city, a feathered serpent in the temple...). Each archetype is its own silhouette, built
+/* creatures.js: the boss roster. Every checkpoint arena draws its guardian from a pool that fits the zone it closes (a grizzly bear in the forest,
+ * a frost mammoth on the peaks, a tide croc on the beach, a feathered serpent in the temple...). Each archetype is its own silhouette, built
  * from voxel boxes, facing -z (forward). The footprint stays inside roughly 2 blocks of the centre so the hit radius in boss.js still feels fair.
  * AH.creatures.make(theme, seed) -> { geo, name } ; the same seed gives the same boss on every phone. */
 (function () {
@@ -11,17 +11,6 @@ const hsl = (h, s, l) => new T.Color().setHSL(((h % 1) + 1) % 1, s, l).getHex();
 const MIR = [-1, 1];
 
 /* ---- forest ---- */
-function mushroom(x) {
-  const b = x.b, R = x.R, hue = R(0, 1) < 0.5 ? 0xd9433a : 0x8e4fd0, cap = hue, capL = lit(hue, 0.18), capD = lit(hue, -0.2), st = 0xf3e6c8, stD = 0xd8c6a0, dk = 0x2a1a14;
-  MIR.forEach(s => b.box(0.8, 0.5, 1.0, stD, s * 0.65, 0.25, -0.2));
-  b.box(1.9, 0.5, 1.9, stD, 0, 0.75, 0).box(1.6, 1.7, 1.6, st, 0, 1.8, 0);
-  MIR.forEach(s => b.box(0.34, 0.5, 0.1, 0xffffff, s * 0.4, 2.0, -0.83).box(0.18, 0.3, 0.1, dk, s * 0.4, 2.0, -0.9).box(0.55, 0.12, 0.1, dk, s * 0.4, 2.32, -0.88));
-  b.box(0.9, 0.2, 0.1, dk, 0, 1.3, -0.85).box(0.12, 0.2, 0.1, 0xffffff, -0.25, 1.42, -0.9).box(0.12, 0.2, 0.1, 0xffffff, 0.25, 1.42, -0.9);
-  MIR.forEach(s => b.box(0.45, 0.45, 0.45, stD, s * 1.1, 1.5, -0.3).box(0.6, 0.6, 0.6, st, s * 1.35, 1.1, -0.45));
-  b.box(3.7, 0.16, 3.7, 0xe8d3a8, 0, 2.7, 0).box(3.6, 0.5, 3.6, cap, 0, 2.98, 0).box(3.0, 0.5, 3.0, capL, 0, 3.45, 0).box(2.1, 0.4, 2.1, cap, 0, 3.85, 0).box(1.2, 0.3, 1.2, capD, 0, 4.15, 0);
-  for (let i = 0; i < 8; i++) { const s = R(0.3, 0.6); b.box(s, 0.1, s, 0xffffff, R(-1.3, 1.3), 3.2 + R(0, 0.2), R(-1.3, 1.3)); }
-  for (let i = 0; i < 6; i++) b.box(0.12, 0.12, 0.12, 0xf5e642, R(-2, 2), R(0.8, 3.2), R(-2, 2));   // spores
-}
 function treant(x) {
   const b = x.b, R = x.R, bark = 0x6b4a2e, barkL = 0x84603c, barkD = 0x4a321e, lf = 0x2f9a4a, lfL = 0x4cc46f, lfD = 0x1f6f38;
   [[-1, -0.7], [1, -0.7], [-0.9, 0.9], [0.9, 0.9]].forEach(p => b.box(0.7, 0.8, 1.3, barkD, p[0], 0.4, p[1]).box(0.5, 0.4, 0.9, bark, p[0] * 1.3, 0.2, p[1] * 1.2));
@@ -70,9 +59,9 @@ function yeti(x) {
 /* ---- stone / ice / lava / ruin colossus: dressed from the zone ---- */
 function golem(x) {
   const b = x.b, R = x.R, th = x.th, id = th.id;
-  const stone = { winter: 0xbfe3f8, volcano: 0x2b2630, desert: 0xd9bf8a, city: 0x6a7380, temple: 0x9a9484 }[id] || 0x9d9484;
+  const stone = { winter: 0xbfe3f8, volcano: 0x2b2630, desert: 0xd9bf8a, temple: 0x9a9484, rainforest: 0x7a8a6a, beach: 0xe6d3a0, lake: 0x9aa3ad }[id] || 0x9d9484;
   const a = lit(stone, R(-0.05, 0.05)), c2 = lit(stone, -0.2), c3 = lit(stone, 0.2);
-  const glow = { volcano: 0xff6a1a, winter: 0x7cd8ff, temple: 0x2fe0c0, city: 0x38e1ff }[id] || 0xffd23f, ac = th.arena.moss;
+  const glow = { volcano: 0xff6a1a, winter: 0x7cd8ff, temple: 0x2fe0c0, rainforest: 0xb8f23a, beach: 0x22b8d8, lake: 0x7cd8ff }[id] || 0xffd23f, ac = th.arena.moss;
   MIR.forEach(s => b.box(1.0, 0.5, 1.4, c2, s * 0.85, 0.25, 0.1).box(0.8, 1.1, 0.8, a, s * 0.85, 1.05, 0.1).box(0.9, 0.3, 0.9, c3, s * 0.85, 1.7, 0.1));
   b.box(2.4, 1.9, 1.7, a, 0, 2.65, 0).box(2.0, 0.4, 1.3, c2, 0, 1.85, 0).box(2.0, 1.2, 0.2, c3, 0, 2.7, -0.9).box(0.7, 0.7, 0.12, glow, 0, 2.75, -1.02).box(0.36, 0.36, 0.14, lit(glow, 0.55), 0, 2.75, -1.06);
   MIR.forEach(s => b.box(1.1, 0.9, 1.3, c3, s * 1.5, 3.5, 0).box(0.85, 1.7, 0.9, a, s * 1.6, 2.4, -0.1).box(1.15, 1.1, 1.15, c2, s * 1.6, 1.1, -0.15).box(1.2, 0.14, 1.2, glow, s * 1.6, 1.68, -0.15));
@@ -104,14 +93,14 @@ function scarab(x) {
   for (let i = 0; i < 3; i++) b.box(3.04, 0.12, 0.26, gold, 0, 1.8, -0.6 + i * 1.1);                  // gold bands
   MIR.forEach(s => b.box(0.16, 0.7, 2.8, shD(sh), s * 1.55, 1.9, 0.35));                              // wing-case seams
   b.box(1.6, 0.8, 0.9, dk, 0, 1.25, -1.9).box(1.1, 0.5, 0.6, sh, 0, 1.65, -2.0);                      // head
-  MIR.forEach(s => b.box(0.26, 0.26, 0.1, 0xff3b3b, s * 0.5, 1.45, -2.4).box(0.2, 0.2, 0.9, horn, s * 0.55, 0.9, -2.7).box(0.2, 0.5, 0.2, horn, s * 0.6, 1.0, -3.1));   // eyes, mandibles
+  MIR.forEach(s => b.box(0.26, 0.26, 0.1, 0xff3b3b, s * 0.5, 1.45, -2.4).box(0.2, 0.2, 0.9, horn, s * 0.55, 0.9, -2.7, 'torso').box(0.2, 0.5, 0.2, horn, s * 0.6, 1.0, -3.1, 'torso'));   // eyes, mandibles: part of the head, they never walk
   b.box(0.3, 0.3, 1.2, horn, 0, 2.0, -2.7).box(0.3, 0.9, 0.3, horn, 0, 2.4, -3.2).box(0.3, 0.3, 0.5, horn, 0, 2.85, -3.0);   // horn
   for (let i = 0; i < 3; i++) { const z = -0.9 + i * 1.3; MIR.forEach(s => b.box(1.2, 0.3, 0.3, dk, s * 1.9, 0.9, z).box(0.3, 0.9, 0.3, dk, s * 2.45, 0.45, z).box(0.5, 0.12, 0.4, dk, s * 2.5, 0.06, z)); }   // six legs
 }
 const shD = c => ((c >> 17 & 0x7f) << 16) | ((c >> 9 & 0x7f) << 8) | (c >> 1 & 0x7f);
 function crab(x) {
   const b = x.b, th = x.th, id = th.id;
-  const sh = { desert: 0xd98a4a, volcano: 0x2f2a36, city: 0x8a96a3, forest: 0xd9573a }[id] || 0xd9573a, shL = id === 'volcano' ? 0xff6a1a : lit(sh, 0.2), shD = lit(sh, -0.3);
+  const sh = { desert: 0xd98a4a, volcano: 0x2f2a36, beach: 0xff7a59, lake: 0x5a9ac8, forest: 0xd9573a }[id] || 0xd9573a, shL = id === 'volcano' ? 0xff6a1a : lit(sh, 0.2), shD = lit(sh, -0.3);
   b.box(3.0, 1.1, 2.3, sh, 0, 1.15, 0.2).box(2.4, 0.5, 1.7, shL, 0, 1.85, 0.1);
   MIR.forEach(s => {
     b.box(0.15, 0.6, 0.15, shD, s * 0.5, 2.3, -0.8).box(0.4, 0.4, 0.4, 0xffffff, s * 0.5, 2.7, -0.85).box(0.2, 0.25, 0.12, 0x111111, s * 0.5, 2.7, -1.08);
@@ -119,7 +108,6 @@ function crab(x) {
     b.box(0.45, 0.45, 1.1, sh, s * 1.4, 1.3, -1.5).box(1.1, 1.0, 0.9, shL, s * 1.3, 1.3, -2.25).box(0.4, 0.55, 0.8, shD, s * 1.65, 1.3, -2.85).box(0.4, 0.55, 0.8, shD, s * 0.95, 1.3, -2.85);
   });
   b.box(1.4, 0.2, 0.1, shD, 0, 1.4, -1.0);
-  if (id === 'city') b.box(0.1, 0.9, 0.1, 0x3a4350, 0.9, 2.5, 0.3).box(0.22, 0.22, 0.22, 0xff3b5c, 0.9, 3.0, 0.3).box(1.2, 0.2, 0.1, 0x38e1ff, 0, 1.9, -1.0);
 }
 
 /* ---- ember rift ---- */
@@ -136,23 +124,23 @@ function drake(x) {   // the classic random monster, kept as one option among ma
   for (let i = 0; i < 4; i++) b.box(0.7 - i * 0.14, 0.7 - i * 0.14, 0.7, c1, 0, y0 + 0.5 - i * 0.05, bd / 2 + 0.3 + i * 0.65);
 }
 
-/* ---- city ---- */
-function mech(x) {
-  const b = x.b, steel = 0x8a96a3, dark = 0x3a4350, yel = 0xffc21a, glow = 0x38e1ff, red = 0xff3b5c;
-  MIR.forEach(s => b.box(1.1, 0.35, 1.7, dark, s * 1.0, 0.18, -0.1).box(0.7, 1.3, 0.7, steel, s * 1.0, 1.0, 0).box(0.95, 0.3, 0.95, yel, s * 1.0, 1.75, 0));
-  b.box(2.7, 0.9, 1.5, dark, 0, 2.2, 0).box(2.4, 1.9, 1.6, steel, 0, 3.5, 0).box(2.0, 1.2, 0.2, dark, 0, 3.5, -0.85).box(1.7, 0.16, 0.1, glow, 0, 3.8, -0.97).box(1.7, 0.16, 0.1, glow, 0, 3.4, -0.97).box(1.7, 0.16, 0.1, glow, 0, 3.0, -0.97);
-  MIR.forEach(s => b.box(0.9, 0.9, 1.0, yel, s * 1.5, 4.25, 0).box(0.42, 0.42, 1.7, dark, s * 1.5, 4.25, -1.1).box(0.3, 0.3, 0.1, red, s * 1.5, 4.25, -1.97).box(0.55, 1.5, 0.6, steel, s * 1.6, 2.9, 0.1).box(0.8, 0.8, 0.8, dark, s * 1.6, 1.95, 0.1));
-  b.box(1.1, 0.8, 1.0, steel, 0, 4.9, -0.1).box(0.9, 0.22, 0.1, red, 0, 4.95, -0.62).box(0.08, 0.9, 0.08, dark, 0.4, 5.6, 0).box(0.2, 0.2, 0.2, red, 0.4, 6.1, 0);
-  MIR.forEach(s => b.box(0.3, 1.3, 0.3, dark, s * 0.6, 4.6, 0.9).box(0.4, 0.14, 0.4, 0x777777, s * 0.6, 5.3, 0.9));
+/* ---- rainforest, beach and lake ---- */
+function croc(x) {
+  const b = x.b, g = 0x4a7a3a, gl = 0x6a9a50, gd = 0x2f5a2a, bel = 0xd9d9a8;
+  MIR.forEach(s => [-0.9, 1.0].forEach(z => b.box(0.6, 0.7, 0.6, gd, s * 1.0, 0.35, z).box(0.8, 0.2, 0.9, gd, s * 1.05, 0.1, z - 0.1)));
+  b.box(2.0, 0.9, 3.0, g, 0, 1.1, 0.3).box(1.5, 0.3, 2.6, gl, 0, 1.7, 0.3).box(1.5, 0.3, 2.6, bel, 0, 0.62, 0.3);
+  for (let i = 0; i < 6; i++) b.box(0.2, 0.25, 0.3, gd, 0, 1.95, -0.9 + i * 0.5);
+  b.box(1.3, 0.75, 1.2, g, 0, 1.1, -1.6).box(0.9, 0.35, 1.2, gl, 0, 1.0, -2.45).box(0.9, 0.12, 1.1, bel, 0, 0.72, -2.4);
+  MIR.forEach(s => b.box(0.22, 0.22, 0.22, 0xffd23f, s * 0.45, 1.6, -1.5).box(0.08, 0.2, 0.08, 0x111111, s * 0.45, 1.6, -1.62).box(0.08, 0.14, 0.08, 0xffffff, s * 0.35, 0.82, -2.9));
+  b.box(1.0, 0.7, 1.1, g, 0, 1.0, 2.2).box(0.6, 0.5, 0.7, gd, 0, 0.9, 2.85);
 }
-function dozer(x) {
-  const b = x.b, yel = 0xffc21a, dark = 0x2e343c, steel = 0x9aa3ad;
-  MIR.forEach(s => { b.box(0.9, 1.0, 3.7, dark, s * 1.3, 0.5, 0.2); for (let i = 0; i < 6; i++) b.box(1.0, 0.14, 0.3, 0x555d68, s * 1.3, 1.03, -1.5 + i * 0.62); b.box(0.6, 0.6, 0.6, 0x555d68, s * 1.3, 0.5, -1.7).box(0.6, 0.6, 0.6, 0x555d68, s * 1.3, 0.5, 2.0); });
-  b.box(2.2, 1.0, 3.0, yel, 0, 1.3, 0.3).box(1.9, 1.3, 1.6, yel, 0, 2.45, 0.8).box(1.5, 0.6, 0.1, 0xdff3fb, 0, 2.65, -0.03).box(2.1, 0.14, 1.8, dark, 0, 3.15, 0.8);
-  b.box(0.3, 1.3, 0.3, dark, 0.7, 3.0, 1.7).box(0.4, 0.14, 0.4, 0x777777, 0.7, 3.7, 1.7);
-  MIR.forEach(s => b.box(0.5, 0.3, 0.14, 0xff3b3b, s * 0.6, 1.65, -1.22).box(0.8, 0.12, 0.14, dark, s * 0.6, 1.95, -1.25).box(0.3, 1.0, 1.7, dark, s * 1.2, 1.2, -1.4));
-  b.box(3.5, 1.5, 0.4, steel, 0, 1.15, -2.3).box(3.5, 0.2, 0.6, 0x555d68, 0, 1.9, -2.3);
-  for (let i = -2; i <= 2; i++) b.box(0.4, 0.45, 0.5, 0xcfd6de, i * 0.7, 0.3, -2.35);
+function moose(x) {
+  const b = x.b, f = 0x6a4a34, fd = 0x4a3222, fl = 0x8a6a50, an = 0xd9c9a0;
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(p => b.box(0.5, 1.7, 0.5, fd, p[0] * 0.8, 0.85, p[1] * 1.0 + 0.2).box(0.62, 0.2, 0.7, 0x2a1a14, p[0] * 0.8, 0.1, p[1] * 1.0 + 0.2));
+  b.box(2.0, 1.3, 3.0, f, 0, 2.4, 0.2).box(1.5, 0.8, 1.8, fd, 0, 3.1, -0.4).box(0.9, 1.2, 1.0, f, 0, 3.3, -1.5);
+  b.box(0.9, 0.9, 1.3, f, 0, 3.7, -2.0).box(0.6, 0.5, 0.6, fl, 0, 3.4, -2.6).box(0.3, 0.3, 0.3, 0x111111, 0, 3.4, -2.9).box(0.3, 0.6, 0.3, fd, 0, 2.8, -2.0);
+  MIR.forEach(s => b.box(0.18, 0.18, 0.18, 0x111111, s * 0.4, 3.8, -2.4).box(1.3, 0.18, 0.18, an, s * 0.9, 4.2, -2.0).box(0.18, 0.8, 0.18, an, s * 1.5, 4.55, -2.0).box(0.6, 0.16, 1.1, an, s * 1.6, 5.0, -2.0).box(0.16, 0.5, 0.16, an, s * 1.3, 4.9, -2.5));
+  b.box(0.4, 0.5, 0.4, fd, 0, 2.7, 1.8);
 }
 
 /* ---- sun temple ---- */
@@ -185,7 +173,7 @@ function serpent(x) {
  * mode: walk (legs swing, body bobs), hop (the whole body hops and squashes like a player), float (hovers and sways), roll (vehicle: pitches and rumbles).
  * arms / tail: which boxes swing as arms or tail, and where they pivot [y, z]. Everything else is the torso. */
 const ARCH = {
-  mushroom: { name: 'Sporelord', fn: mushroom, mode: 'hop' }, treant: { name: 'Elder Treant', fn: treant, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 2.3, y: 3.6, z: 0 } },
+  treant: { name: 'Elder Treant', fn: treant, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 2.3, y: 3.6, z: 0 } },
   bear: { name: 'Grizzlor', fn: x => quad(x, 'bear'), mode: 'walk' }, mammoth: { name: 'Frost Mammoth', fn: x => quad(x, 'mammoth'), mode: 'walk' },
   jaguar: { name: 'Stone Jaguar', fn: x => quad(x, 'jaguar'), mode: 'walk', tail: { pred: b => b[6] > 2.1 && b[5] > 1.0, y: 1.5, z: 2.0 } },
   yeti: { name: 'The Yeti', fn: yeti, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 1.5, y: 3.2, z: 0 } },
@@ -194,21 +182,22 @@ const ARCH = {
   scarab: { name: 'Titan Scarab', fn: scarab, mode: 'walk' },
   crab: { name: 'Giant Crab', fn: crab, mode: 'walk', arms: { pred: b => b[6] < -1.2 && Math.abs(b[4]) > 0.6, y: 1.2, z: -1.2 } },
   drake: { name: 'Ember Drake', fn: drake, mode: 'walk' },
-  mech: { name: 'Demolition Mech', fn: mech, mode: 'walk', arms: { pred: b => Math.abs(b[4]) >= 1.3 && b[5] > 2.3, y: 4.2, z: 0 } },
-  dozer: { name: 'Rampaging Dozer', fn: dozer, mode: 'roll' },
+  croc: { name: 'Tide Croc', fn: croc, mode: 'walk', tail: { pred: b => b[6] > 1.9, y: 1.0, z: 1.8 } },
+  moose: { name: 'Elk King', fn: moose, mode: 'walk' },
   totem: { name: 'Totem Guardian', fn: totem, mode: 'float', arms: { pred: b => Math.abs(b[4]) >= 1.5 && b[5] < 2.4, y: 1.7, z: -0.5 } },
   serpent: { name: 'Feathered Serpent', fn: serpent, mode: 'float' }
 };
 const POOLS = {
-  forest: ['mushroom', 'treant', 'bear', 'golem'], winter: ['mammoth', 'yeti', 'golem'], desert: ['scorpion', 'scarab', 'crab', 'golem'],
-  volcano: ['drake', 'golem', 'crab'], city: ['mech', 'dozer', 'crab', 'golem'], temple: ['totem', 'serpent', 'jaguar', 'golem']
+  forest: ['bear', 'treant', 'golem'], winter: ['mammoth', 'yeti', 'golem'], desert: ['scorpion', 'scarab', 'crab', 'golem'],
+  volcano: ['drake', 'golem', 'crab'], rainforest: ['jaguar', 'treant', 'croc', 'golem'], beach: ['crab', 'croc', 'scorpion', 'golem'], lake: ['moose', 'bear', 'croc', 'golem'], temple: ['totem', 'serpent', 'jaguar', 'golem']
 };
-const TITLE = { golem: { winter: 'Ice Colossus', volcano: 'Magma Colossus', desert: 'Sandstone Colossus', city: 'Concrete Colossus', temple: 'Temple Colossus', forest: 'Stone Colossus' },
-  crab: { desert: 'Sand Crab King', volcano: 'Magma Crab', city: 'Robo Crab', forest: 'Giant Crab' } };
+const TITLE = { golem: { winter: 'Ice Colossus', volcano: 'Magma Colossus', desert: 'Sandstone Colossus', temple: 'Temple Colossus', forest: 'Stone Colossus', rainforest: 'Vine Colossus', beach: 'Sandcastle Colossus', lake: 'Lake Colossus' },
+  crab: { desert: 'Sand Crab King', volcano: 'Magma Crab', beach: 'Beach Crab King', lake: 'River Crab', forest: 'Giant Crab' },
+  jaguar: { rainforest: 'Jungle Jaguar' }, scorpion: { beach: 'Sun Scorpion' }, bear: { lake: 'Lake Grizzly' }, croc: { rainforest: 'Swamp Croc', beach: 'Tide Croc', lake: 'Marsh Croc' } };
 
 /* records every box so the model can be split into parts that move on their own */
 function Rec() { this.list = []; }
-Rec.prototype.box = function (w, h, d, c, x, y, z) { this.list.push([w, h, d, c, x, y, z]); return this; };
+Rec.prototype.box = function (w, h, d, c, x, y, z, role) { this.list.push([w, h, d, c, x, y, z, role]); return this; };      // role: optional, pins a box to a body part (e.g. 'torso')
 
 AH.creatures = {
   /* -> { parts: [{ role, geo, pivot:[x,y,z] }], mode, name, kind }. Roles: torso, legA/legB (diagonal pairs), armL/armR, tail. A part's geometry is
@@ -221,7 +210,8 @@ AH.creatures = {
     const yLeg = Math.min(1.9, Math.max(0.8, 0.36 * H)), groups = {};
     rec.list.forEach(q => {
       let role = 'torso';
-      if (A.mode === 'walk') {
+      if (q[7]) role = q[7];
+      else if (A.mode === 'walk') {
         if (A.arms && A.arms.pred(q)) role = q[4] < 0 ? 'armL' : 'armR';
         else if (A.tail && A.tail.pred(q)) role = 'tail';
         else if (q[5] <= yLeg && Math.abs(q[4]) > 0.25) role = ((q[4] < 0 ? -1 : 1) * (Math.abs(q[6]) > 0.5 ? (q[6] < 0 ? -1 : 1) : 1) > 0) ? 'legA' : 'legB';

@@ -15,7 +15,7 @@ function killRowNear(r, x, reach) {
   const row = W.get(r);
   if (!row) return;
   const t = AH.now();
-  if (row.type === 'road' || row.type === 'roll') row.objs.forEach(o => { if (o.alive && o.hurts && Math.abs(W.objX(o, t) - x) < reach + o.len / 2) W.killObj(r, o.idx); });
+  if (row.type === 'road' || row.type === 'roll') W.laneObjs(row).forEach(o => { if (o.alive && o.hurts && Math.abs(W.objX(o, t) - x) < reach + o.len / 2) W.killObj(r, o.idx); });
   else if (row.type === 'rail' && row.train && row.train.alive) {
     const s = W.trainState(row, t);
     if (s.x !== null && Math.abs(s.x - x) < reach + row.train.len / 2) W.killObj(r, -1);
@@ -105,7 +105,34 @@ FX.poop = function (x, z, mine, y) {
   AH.beep(900, 0.25, 'sine', 0.04, -600);
   if (mine) send('poop', { x: x, z: z, y: y });
 };
+
+/* ---- wind: the quiet way the world warns you. Thin pale streaks that sweep through the air (no coloured markers). ---- */
+const gusts = [], GM = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.38, depthWrite: false });
+FX.gust = function (x, y, z, vx, vz, len, life) {
+  if (gusts.length > 90) { const o = gusts.shift(); AH.scene.remove(o.m); }
+  const m = new T.Mesh(AH.BOX, GM); m.rotation.y = Math.atan2(-vz, vx); m.position.set(x, y, z); m.scale.set(0.01, 0.035, 0.035); m.renderOrder = 4;
+  AH.scene.add(m); gusts.push({ m: m, vx: vx, vz: vz, vy: 0.15 + Math.random() * 0.4, len: len || 1.2, t: 0, life: life || 0.6 });
+};
+/* streaks flying outward from a point (a roar, a landing) */
+FX.windBurst = function (x, z, n, r0, sp, y) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, c = Math.cos(a), s = Math.sin(a), q = r0 * (0.6 + Math.random() * 0.6); FX.gust(x + c * q, (y || 0.6) + Math.random() * 1.6, z + s * q, c * sp * (0.8 + Math.random() * 0.5), s * sp * (0.8 + Math.random() * 0.5), 0.9 + Math.random() * 1.2, 0.55 + Math.random() * 0.3); }
+};
+/* streaks pulled in towards a point (something gathering power) */
+FX.windSuck = function (x, z, n, r0, sp) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, c = Math.cos(a), s = Math.sin(a), q = r0 * (0.8 + Math.random() * 0.4); FX.gust(x + c * q, 0.3 + Math.random() * 1.2, z + s * q, -c * sp, -s * sp, 0.8 + Math.random(), r0 / sp * 0.9); }
+};
+/* streaks racing along a direction from a point (a charge, a breath) */
+FX.windLine = function (x, z, dx, dz, n, span, sp, spread) {
+  const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+  for (let i = 0; i < n; i++) { const d = Math.random() * span, w = (Math.random() - 0.5) * 2 * (spread || 1); FX.gust(x + dx * d - dz * w, 0.2 + Math.random() * 1.3, z + dz * d + dx * w, dx * sp, dz * sp, 1.0 + Math.random() * 1.2, 0.45 + Math.random() * 0.25); }
+};
 FX.update = function (dt) {
+  for (let i = gusts.length - 1; i >= 0; i--) {
+    const g = gusts[i]; g.t += dt; const k = g.t / g.life;
+    if (k >= 1) { AH.scene.remove(g.m); gusts.splice(i, 1); continue; }
+    g.m.position.x += g.vx * dt; g.m.position.z += g.vz * dt; g.m.position.y += g.vy * dt * (1 - k);
+    g.m.scale.x = Math.max(0.01, g.len * Math.sin(Math.PI * k));
+  }
   for (let i = rings.length - 1; i >= 0; i--) {
     const g = rings[i]; g.t += dt;
     const k = Math.min(1, g.t / 0.35); g.m.scale.set(0.3 + 2.8 * k, 1, 0.3 + 2.8 * k); g.m.material.opacity = 0.7 * (1 - g.t / 0.45);
@@ -124,7 +151,7 @@ FX.update = function (dt) {
     }
   }
 };
-FX.clear = function () { rings.forEach(g => AH.scene.remove(g.m)); rings.length = 0; falling.forEach(f => AH.scene.remove(f.m)); falling.length = 0; };
+FX.clear = function () { gusts.forEach(g => AH.scene.remove(g.m)); gusts.length = 0; rings.forEach(g => AH.scene.remove(g.m)); rings.length = 0; falling.forEach(f => AH.scene.remove(f.m)); falling.length = 0; };
 
 /* remote side */
 FX.recv = function (t, d) {

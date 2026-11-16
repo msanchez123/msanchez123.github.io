@@ -57,7 +57,7 @@ PL.opts = function () {
   const ch = P.ch;
   return {
     fly: P.fly, occ: occupied,
-    block: (x, z) => !!(AH.boss && AH.boss.hopCheck(x, z, P)),
+    block: (x, z) => !!(AH.boss && AH.boss.hopCheck(x, z, P)) || !!(AH.wild && !P.nohit && AH.wild.hopCheck(x, z)),
     veto: ch.veto ? (row, x, t) => ch.veto(P, row, x, t) : null
   };
 };
@@ -69,6 +69,7 @@ PL.from = function () {
 PL.plan = function (k, n) {
   n = n || 1;
   if (AH.boss) AH.boss.hitFlag = false;
+  if (AH.wild) AH.wild.hit = null;
   const f = PL.from(), o = PL.opts(), t = AH.now();
   for (let m = n; m >= 1; m--) { const h = Nav.hop(f, k, m, t, o); if (h) return h; }
   return null;
@@ -103,6 +104,11 @@ PL.tryMove = function (k, n, isLeap, noCount) {
       AH.boss.hurt(1, d[0], d[1]);
       if (B.st !== 'sleep' && B.st !== 'roar' && B.st !== 'rage' && B.st !== 'dying') impact(P.x + d[0] * 0.8, P.z + d[1] * 0.8, [0xffffff, 0xffd23f, P.ch.col], 0.3);
       PL.knock(k); return false;
+    }
+    if (AH.wild && AH.wild.hit && !P.nohit) {                      // jumped into a creature before it struck: it is defeated
+      const c = AH.wild.hit, d = DIRS[k]; AH.wild.hit = null; AH.wild.defeat(c);
+      impact(P.x + d[0] * 0.8, P.z + d[1] * 0.8, [0xffffff, 0xffd23f, P.ch.col], 0.2);
+      P.bump = 0.2; return false;
     }
     const gr = barrierAhead(k, n);
     if (gr) {                                                      // the exit barrier: unbreakable until the guardian is down

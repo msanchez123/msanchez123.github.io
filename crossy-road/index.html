@@ -31,6 +31,7 @@ body {
 }
 #score { font-family: var(--font-display); font-weight: 700; font-size: calc(52 * var(--u)); line-height: 1; color: #fff; text-shadow: 0 calc(3 * var(--u)) 0 var(--ink), calc(2 * var(--u)) 0 0 var(--ink), calc(-2 * var(--u)) 0 0 var(--ink), 0 calc(-2 * var(--u)) 0 var(--ink); font-variant-numeric: tabular-nums; }
 #best { font-family: var(--font-display); font-size: calc(14 * var(--u)); background: var(--snow); border: calc(2 * var(--u)) solid var(--ink); border-radius: calc(4 * var(--u)); padding: calc(4 * var(--u)) calc(8 * var(--u)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.meter[hidden] { display: none; }
 .meter { grid-column: 1 / -1; display: flex; align-items: center; gap: calc(8 * var(--u)); }
 .meter span { font-family: var(--font-display); font-size: calc(10 * var(--u)); letter-spacing: 0.12em; min-width: calc(86 * var(--u)); white-space: nowrap; }
 .track { flex: 1; height: calc(10 * var(--u)); background: rgba(255,255,255,0.7); border: calc(2 * var(--u)) solid var(--ink); border-radius: calc(3 * var(--u)); overflow: hidden; }
@@ -99,7 +100,6 @@ body {
   <div class="hud">
     <div id="score">0</div>
     <div id="best">BEST 0</div>
-    <div class="meter"><span id="avl">AVALANCHE</span><div class="track"><div id="fill"></div></div></div>
     <div class="meter" id="bossbar" hidden><span>BOSS</span><div class="track"><div id="bossfill"></div></div></div>
     <div class="net"><button id="invite" type="button">Invite friends</button><span id="netstat"></span></div>
     <div id="mp"></div>
@@ -109,8 +109,8 @@ body {
       <h1>Avalanche Hop</h1>
       <ul>
         <li>Hold to crouch, release to hop ahead. Drag before releasing to hop left, right or back.</li>
-        <li>Dodge traffic, trains and boulders, ride logs and outrun the wave behind you.</li>
-        <li>Every 50 lanes is a checkpoint arena with a boss. Hop into it when it is worn out. Beat it, the whole team gets back up and a new land begins.</li>
+        <li>Dodge traffic, trains and boulders, ride logs and take your time: nothing is chasing you.</li>
+        <li>Every 100 lanes is a checkpoint arena with a boss. Hop into it when it is worn out. Beat it, the whole team gets back up and a new land begins.</li>
         <li>Invite friends to share one course. Everyone has their own camera.</li>
       </ul>
       <div class="pick" role="group" aria-label="Choose a character"></div>
@@ -137,6 +137,7 @@ body {
 <script src="js/core.js"></script>
 <script src="js/themes.js"></script>
 <script src="js/world.js"></script>
+<script src="js/biomes.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars/kangaroo.js"></script>
 <script src="js/chars/gorilla.js"></script>

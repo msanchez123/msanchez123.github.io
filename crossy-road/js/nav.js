@@ -40,7 +40,7 @@ Nav.hop = function (f, k, m, t, o) {
 Nav.safe = function (row, x, t, land) {
   if (!row || Math.abs(x) > COLS + 1.25) return false;
   if (land && !W.stand(row, x, t, 0.05).ok) return false;
-  if (row.type === 'road' || row.type === 'roll' || row.type === 'rail') {
+  if (row.type === 'road' || row.type === 'roll' || row.type === 'rail' || row.type === 'tide') {
     if (W.hitAt(row, x, t - 0.08, 0.5) || W.hitAt(row, x, t, 0.5) || W.hitAt(row, x, t + 0.12, 0.5)) return false;
   }
   if (AH.wild && AH.wild.dangerAt(x, -row.r)) return false;
