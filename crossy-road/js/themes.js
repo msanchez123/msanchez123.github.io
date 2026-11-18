@@ -30,7 +30,7 @@ const THEMES = AH.THEMES = [
     tree: { style: 'pine', trunk: 0x6b4a33, a: [0x1f6b4a, 0x23785a], b: [0x2b8a63, 0x319a70], c: 0x3bb07c, cap: 0xffffff }, rock: [0x8e9db0, 0xc5d3e2, 0x7a899c],
     fence: [0x9cc4e0, 0xdff1fb],
     arena: { a: 0xdcebf7, b: 0xc9dff0, accent: 0x7cc8f0, wall: 0x9cc4e0, wallTop: 0xeaf6ff, pillar: [0xbfe3f8, 0x8fc4e6], moss: 0xffffff, flame: [0x38bdf8, 0xe0f7ff], flag: 0x38bdf8, prop: 'ice' },
-    mix: { grass: 1, road: 0.8, water: 1.35, rail: 0.7, lily: 1.3, conv: 0.9, roll: 1.4 },
+    mix: { grass: 1, road: 0.8, water: 1.35, rail: 0.7, lily: 1.3, conv: 0.9, roll: 2.2, ice: 1.6 },
     chase: { id: 'snow', label: 'AVALANCHE', slab: 0xf2f9ff, rocks: [0xffffff, 0xe9f5ff, 0xd5eafb, 0xf6fbff], dust: [0xffffff, 0xe9f5ff, 0xcfe6f7], glow: 0, death: 'Buried in snow!' } },
 
   { id: 'desert', name: 'Dune Sea',

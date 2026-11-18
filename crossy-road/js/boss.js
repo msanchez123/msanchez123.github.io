@@ -9,7 +9,7 @@
 'use strict';
 const AH = window.AH, T = AH.T, W = AH.world, COLS = AH.COLS;
 const B = AH.boss = { on: false, A: 0, st: 'none', tm: 0, hp: 0, max: 10, x: 0, z: 0, rot: 0, px: 0, pz: 0, prot: 0, ax: 0, az: 0, dir: [0, -1], axT: 0, phase: 1, obs: [], mets: [], kit: { summon: true }, chaseT: 3, flash: 0, hitFlag: false, hitDir: [0, -1], hitCd: 0, group: null, body: null, mat: null, parts: [], mode: 'walk', ph: 0, mv: 0, lx: 0, lz: 0, sq: 0, kick: 0, kd: [0, 0], th: null, lhp: 0, sent: 0, name: '', locked: false };
-const R_BODY = 1.7, SLAM_R = 2.7, CONE_LEN = 8, CONE_HALF = 0.5, MET_R = 1.4, MET_WARN = 1.2, JR = 3.0, JUMP_T = 0.34, JRANGE = 4.2;
+const R_BODY = 1.7, SLAM_R = 2.7, CONE_LEN = 8, CONE_HALF = 0.5, MET_R = 1.4, MET_WARN = 1.2, JR = 2.0, JUMP_T = 0.34, JRANGE = 4.2;
 
 /* ---- the creature: every arena gets a guardian that fits its zone (see creatures.js) ---- */
 
@@ -89,7 +89,7 @@ function setSt(st) {
   B.st = st; B.tm = 0; B.locked = false; onEnter(st);
   if (!B.obs.length) return;
   if (st === 'slam') smash((x, z) => Math.hypot(x - B.ax, z - B.az) < SLAM_R + 0.6);
-  else if (st === 'quake') smash((x, z) => Math.hypot(x - B.ax, z - B.az) < JR + 0.5);
+  else if (st === 'quake') smash((x, z) => Math.hypot(x - B.ax, z - B.az) < JR + 0.3);
   else if (st === 'cone') { const f = fwd(B.rot); smash((x, z) => { const dx = x - B.x, dz = z - B.z, l = Math.hypot(dx, dz); return l < CONE_LEN && l > 0.01 && (dx * f[0] + dz * f[1]) / l > Math.cos(CONE_HALF + 0.12); }); }
   else if (st === 'recover' && B.phase >= 2) {                                          // the arena keeps crumbling: fresh debris falls once it is thinned out
     if (B.obs.filter(alive).length < 12 && B.obs.length < 70) B.obs = B.obs.concat(makeObstacles(8));

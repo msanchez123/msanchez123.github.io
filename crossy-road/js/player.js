@@ -121,6 +121,8 @@ PL.tryMove = function (k, n, isLeap, noCount) {
     }
     P.bump = 0.18; AH.beep(130, 0.06, 'square', 0.03); return false; }
   const big = pl.steps > 1, trow = pl.rowObj;
+  if (!noCount) P.slides = 0;
+  if (!P.nohit) P.lastK = k;
   P.jumping = true; P.jt = 0; P.bounce = false; P.big = big;
   P.dur = big ? Math.min(0.2 + 0.05 * pl.steps, 0.9) : JD; P.hgt = big ? Math.min(1.2 + 0.3 * pl.steps, 3.4) : 0.95;
   if (P.fly) P.hgt = 0;
@@ -177,6 +179,12 @@ function land() {
   if (P.big) { AH.burst(12, P.x, 0.1, P.z, [0xffd23f, 0xffffff], 3.4, 3); AH.cam.shake = Math.max(AH.cam.shake, 0.2); P.big = false; }
   P.landT = P.fly ? 0 : 0.12;
   if (P.ch.onLand) P.ch.onLand(P);
+  const rw = W.get(P.row);
+  if (rw && rw.ice && !P.fly && !P.bounce && !P.dead && P.lastK && (P.slides || 0) < 2 && PL.plan(P.lastK, 1)) {      // ice: you keep sliding one more block the way you were going
+    P.slides = (P.slides || 0) + 1; AH.burst(5, P.x, 0.1, P.z, [0xffffff, 0xcfeaff], 1.6, 2);
+    PL.tryMove(P.lastK, 1, true, true); return;
+  }
+  if (!(rw && rw.ice)) P.slides = 0;
   if (P.buf) { const b = P.buf; P.buf = null; PL.tryMove(b.k, b.n, b.leap, b.nc); }
 }
 

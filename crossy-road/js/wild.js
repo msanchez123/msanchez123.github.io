@@ -42,7 +42,6 @@ Wd.aqua = function (row, th) {
   if (Math.random() > 0.16) return;
   let x, y, dolphin = false;
   if (th.sea && (row.kind === 'shore' || row.kind === 'shore2')) { x = (row.kind === 'shore' ? -1 : 1) * (AH.BGX + rg(1.5, 9)); y = -1.55; dolphin = Math.random() < 0.4; }
-  else if (row.wet && row.wet.size > 2) { const cells = Array.from(row.wet); x = cells[Math.floor(Math.random() * cells.length)] + rg(-0.3, 0.3); y = row.y - 0.3; }
   else return;
   const m = new T.Mesh(dolphin ? dolphinGeo : fishGeo, AH.VM), g = new T.Group(); g.add(m); g.visible = false; AH.scene.add(g);
   list.push({ kind: 'aqua', g: g, row: row.r, x: x, z: -row.r + rg(-0.3, 0.3), y0: y, amp: dolphin ? rg(1.0, 1.5) : rg(0.5, 0.9), per: dolphin ? rg(5, 8) : rg(2.5, 4.5), off: rg(0, 8), dur: dolphin ? 1.3 : 0.9, dir: Math.random() < 0.5 ? -1 : 1, wet: false, big: dolphin });

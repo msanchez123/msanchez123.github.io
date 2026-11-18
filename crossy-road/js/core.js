@@ -55,10 +55,19 @@ AH.seeded = function (str) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 };
-let gen = Math.random;
-AH.setSeed = s => { gen = s ? AH.seeded(s) : Math.random; };
-AH.rand = () => gen();
-AH.rnd = (a, b) => a + gen() * (b - a);
+/* Two independent streams, both re-seeded per row from (seed, row):
+ *   layout  (AH.lrand/lrnd/lri) - everything that decides WHAT is where: lane types, obstacles, logs, cars, timings. This is the level.
+ *   deco    (AH.rand/rnd/ri)    - purely visual choices: tuft positions, rock shapes, colours. Changing any decoration can never change the level.
+ * Because each row has its own streams, a row's layout depends only on the seed, its row number and the course state, never on how much decoration came before. */
+let seedStr = null, lgen = Math.random, dgen = Math.random;
+AH.setSeed = s => { seedStr = s || null; lgen = dgen = Math.random; };
+AH.seedLayout = r => { if (seedStr) lgen = AH.seeded(seedStr + ':L:' + r); };
+AH.seedDeco = r => { if (seedStr) dgen = AH.seeded(seedStr + ':D:' + r); };
+AH.lrand = () => lgen();
+AH.lrnd = (a, b) => a + lgen() * (b - a);
+AH.lri = (a, b) => Math.floor(AH.lrnd(a, b + 1));
+AH.rand = () => dgen();
+AH.rnd = (a, b) => a + dgen() * (b - a);
 AH.ri = (a, b) => Math.floor(AH.rnd(a, b + 1));
 AH.prnd = (a, b) => a + Math.random() * (b - a); // cosmetic only
 
@@ -244,10 +253,12 @@ AH.VMC = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: AH.CLIP
 AH.CLIPF = [new T.Plane(new T.Vector3(1, 0, 0), 15), new T.Plane(new T.Vector3(-1, 0, 0), 15)];
 AH.VMF = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: AH.CLIPF });
 AH.VMR = new T.MeshLambertMaterial({ vertexColors: true });                           // boulders: free to ride up the hills, no clipping
-AH.CLIPR = [new T.Plane(new T.Vector3(1, 0, 0), 12.9), new T.Plane(new T.Vector3(-1, 0, 0), 12.9)];   // rivers keep their water flat out to the foot of the bank
+AH.CLIPR = [new T.Plane(new T.Vector3(1, 0, 0), 9.3), new T.Plane(new T.Vector3(-1, 0, 0), 9.3)];   // rivers keep their water flat out to the foot of the bank
 AH.VMW = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: AH.CLIPR });
 AH.CLIPT = [new T.Plane(new T.Vector3(1, 0, 0), 15.9), new T.Plane(new T.Vector3(-1, 0, 0), 15.9)];  // trains run on into their tunnel
 AH.VMT = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: AH.CLIPT });
+AH.CLIPX = [new T.Plane(new T.Vector3(1, 0, 0), 27.5), new T.Plane(new T.Vector3(-1, 0, 0), 27.5)];  // trains on flat ground run all the way to the far edge
+AH.VMX = new T.MeshLambertMaterial({ vertexColors: true, clippingPlanes: AH.CLIPX });
 /* animated water: one shared clock, waves are driven in the vertex shader (height) and a crest highlight in the fragment shader */
 AH.waveT = { value: 0 };
 const waterMats = {};
@@ -274,7 +285,7 @@ scene.add(hemi);
 const sun = AH.sun = new T.DirectionalLight(0xffffff, 0.5);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
-sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.02;
+sun.shadow.bias = -0.0012; sun.shadow.normalBias = 0.06;
 Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 70 });
 scene.add(sun, sun.target);
 

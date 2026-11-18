@@ -234,6 +234,7 @@ function frame(now) {
   }
   AH.cam.tx = tx; AH.cam.tz = tz - 2.5; AH.cam.ty = P.dead ? AH.cam.ty : P.baseY * 0.85;
   AH.cam.update(dt);
+  if (!P.dead && W.seeThrough) W.seeThrough(P.x, P.y + (P.lift || 0), P.z, Math.round(-P.z));
   AH.skyTo(Math.round(-AH.cam.focus.z) + 3, dt);
   updateAim();
 
